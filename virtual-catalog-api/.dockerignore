@@ -1,0 +1,13 @@
+.env
+catalogo.db
+catalog.db
+data/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+Dockerfile
+.dockerignore
