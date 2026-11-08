@@ -8,8 +8,13 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-const BASE_URL =
-  import.meta.env.PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// En el servidor (SSR) se usa INTERNAL_API_URL si existe (ej. http://api:8000 dentro de Docker);
+// en el navegador siempre PUBLIC_API_URL. import.meta.env.SSR se resuelve en el build.
+const BASE_URL = import.meta.env.SSR
+  ? process.env.INTERNAL_API_URL ||
+    import.meta.env.PUBLIC_API_URL ||
+    'http://localhost:8000/api/v1'
+  : import.meta.env.PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 const getHeaders = () => {
   const headers: Record<string, string> = {
