@@ -1,0 +1,58 @@
+---
+import MainLayout from "../shared/layouts/MainLayout.astro";
+import { CatalogGateway } from "../modules/catalog/gateways/CatalogGateway";
+
+import { CatalogSearchGrid } from "../modules/catalog/components/CatalogSearchGrid";
+import type {
+  PaginationMeta,
+  SearchArticleItem,
+} from "../modules/catalog/models/Article";
+
+let initialArticles: SearchArticleItem[] = [];
+let initialPagination: PaginationMeta | null = null;
+let error = null;
+
+try {
+  const initialData = await CatalogGateway.searchCatalog({ page: 1 });
+  initialArticles = initialData.items;
+  initialPagination = initialData.pagination;
+} catch (e) {
+  error = "No pudimos conectar con el almacén. Intenta más tarde.";
+}
+---
+
+<MainLayout title="NovaRun - Cada Kilómetro Cuenta">
+  <section
+    class="relative h-[400px] flex items-center justify-center text-center bg-[url('/banner-bg.png')] bg-cover bg-center"
+  >
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="relative z-10 px-4">
+      <h1
+        class="text-white text-6xl md:text-8xl font-black italic tracking-tighter uppercase"
+      >
+        Cada Kilómetro <span class="text-orange-500">Cuenta.</span>
+      </h1>
+      <p
+        class="text-neutral-300 text-xl mt-4 font-light tracking-widest uppercase"
+      >
+        ¡Cada Paso También! — Hecho para correr
+      </p>
+    </div>
+  </section>
+
+  <main class="max-w-7xl mx-auto px-6 py-12">
+    {
+      error ? (
+        <div class="bg-red-900/20 border border-red-500 text-red-500 p-8 rounded-2xl text-center">
+          {error}
+        </div>
+      ) : (
+        <CatalogSearchGrid
+          client:load
+          initialArticles={initialArticles}
+          initialPagination={initialPagination}
+        />
+      )
+    }
+  </main>
+</MainLayout>

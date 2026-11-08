@@ -1,0 +1,123 @@
+---
+export const prerender = false;
+import MainLayout from "../../shared/layouts/MainLayout.astro";
+import { PaymentProcessor } from "../../modules/order/components/PaymentProcessor";
+import { OrderGateway } from "../../modules/order/gateways/OrderGateway";
+import { CatalogGateway } from "../../modules/catalog/gateways/CatalogGateway";
+
+const { id } = Astro.params;
+let order = null;
+let hydratedItems: any[] = [];
+let error = null;
+
+try {
+    order = await OrderGateway.getOrderById(id as string);
+
+    hydratedItems = await Promise.all(
+        order.items.map(async (item) => {
+            try {
+                const article = await CatalogGateway.getArticleById(
+                    item.article_id,
+                );
+                return {
+                    ...item,
+                    name: article.name,
+                    image_url:
+                        article.image_urls?.[0] || "/placeholder-shoe.png",
+                };
+            } catch (e) {
+                // Fallback defensivo por si un artículo fue eliminado del catálogo pero sigue en la orden
+                return {
+                    ...item,
+                    name: `Artículo Técnico (${item.article_id})`,
+                    image_url: "/placeholder-shoe.png",
+                };
+            }
+        }),
+    );
+} catch (e) {
+    error = "No pudimos cargar la orden. Puede que no exista o haya expirado.";
+}
+
+const formatter = new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+});
+---
+
+<MainLayout title={`Checkout | Orden ${id}`}>
+    <main class="max-w-6xl mx-auto px-6 py-12">
+        <div class="mb-8">
+            <a
+                href="/"
+                class="text-neutral-500 hover:text-orange-500 transition-colors text-sm font-bold uppercase tracking-widest"
+                >← Volver</a
+            >
+        </div>
+        {
+            error || !order ? (
+                <div class="bg-red-900/20 text-red-500 p-8 rounded-2xl text-center border border-red-500/30">
+                    {error || "La orden solicitada no fue encontrada."}
+                </div>
+            ) : (
+                <div class="flex flex-col lg:flex-row gap-12 animate-fade-in">
+                    <div class="flex-1">
+                        <h1 class="text-3xl font-black text-white uppercase tracking-tighter italic mb-2">
+                            Finalizar{" "}
+                            <span class="text-orange-500">Compra</span>
+                        </h1>
+                        <p class="text-neutral-400 mb-8 font-mono text-sm">
+                            Order Ref: {order.order_id}
+                        </p>
+
+                        <div class="bg-[#121212] border border-neutral-800 rounded-2xl p-6 lg:p-8">
+                            <h3 class="text-white font-bold uppercase tracking-widest text-sm mb-6 border-b border-neutral-800 pb-4">
+                                Artículos
+                            </h3>
+
+                            <div class="flex flex-col gap-6">
+                                {/* Iteramos sobre los ítems enriquecidos con nombre e imagen */}
+                                {hydratedItems.map((item) => (
+                                    <div class="flex justify-between items-center gap-4">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-16 h-16 bg-neutral-800 rounded-xl overflow-hidden flex-shrink-0">
+                                                <img
+                                                    src={item.image_url}
+                                                    alt={item.name}
+                                                    class="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div>
+                                                <p class="text-white font-semibold text-base leading-tight mb-1">
+                                                    {item.name}
+                                                </p>
+                                                <p class="text-neutral-500 text-sm">
+                                                    Cantidad: {item.quantity} x{" "}
+                                                    {formatter.format(
+                                                        item.unit_price,
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span class="text-white font-bold text-base flex-shrink-0">
+                                            {formatter.format(item.subtotal)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full lg:w-[400px]">
+                        <PaymentProcessor
+                            client:load
+                            orderId={order.order_id}
+                            totalAmount={order.total_amount}
+                        />
+                    </div>
+                </div>
+            )
+        }
+    </main>
+</MainLayout>

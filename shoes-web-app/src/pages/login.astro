@@ -1,0 +1,128 @@
+---
+// src/pages/login.astro
+// Esta página no usa MainLayout para tener control total del diseño a pantalla completa.
+import "../styles/global.css";
+import { LoginForm } from "../modules/auth/components/LoginForm";
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registrarme o Iniciar sesión | NovaRun</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Inter:wght@300;400;600;700;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <style is:global>
+      .font-serif-nova {
+        font-family: "Gilda Display", serif;
+      }
+      .font-sans-nova {
+        font-family: "Inter", sans-serif;
+      }
+
+      .text-glow-orange {
+        text-shadow: 0 0 15px rgba(238, 98, 57, 0.7);
+      }
+
+      .shadow-button-orange {
+        box-shadow: 0 4px 14px 0 rgba(238, 98, 57, 0.5);
+      }
+    </style>
+  </head>
+
+  <body
+    class="bg-white font-sans-nova text-neutral-900 min-h-screen overflow-hidden"
+  >
+    <div
+      class="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] h-screen w-full overflow-hidden"
+    >
+      <div
+        class="bg-[#0D0B0A] text-center flex flex-col justify-center items-center p-12 md:p-24 relative overflow-hidden h-full"
+      >
+        <div class="absolute inset-0 opacity-20">
+          <div
+            class="absolute -bottom-10 -left-10 w-96 h-96 border border-neutral-800 rounded-full"
+          >
+          </div>
+          <div
+            class="absolute bottom-20 right-20 w-48 h-48 border border-neutral-800 rounded-full"
+          >
+          </div>
+          <div
+            class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-600 via-orange-400 to-orange-600"
+          >
+          </div>
+        </div>
+
+        <div
+          class="relative z-10 flex flex-col items-center gap-6 max-w-sm animate-fade-in"
+        >
+          <h1
+            class="text-white text-5xl font-serif-nova uppercase tracking-widest flex items-center"
+          >
+            <span>NOVA</span><span
+              class="text-[#EE6239] text-glow-orange font-black italic"
+              >RUN</span
+            >
+          </h1>
+
+          <div class="flex items-center gap-5 my-2">
+            <img
+              src="/icons/shoe-icon.png"
+              alt="Zapatilla"
+              class="h-6 w-auto opacity-80"
+            />
+            <img src="/icons/bolt-icon.png" alt="Rayo" class="h-6 w-auto" />
+            <img src="/icons/run-icon.png" alt="Corredor" class="h-6 w-auto" />
+          </div>
+
+          <p
+            class="text-[#EE6239] uppercase text-xs font-black tracking-[0.25em]"
+          >
+            —— Hecho para correr ——
+          </p>
+
+          <p class="text-neutral-400 text-sm font-light leading-relaxed">
+            Accede a tu cuenta y descubre nuestra colección exclusiva de calzado
+            deportivo de alto rendimiento.
+          </p>
+        </div>
+      </div>
+
+      <div
+        class="bg-white flex flex-col h-full overflow-y-auto p-12 md:p-24 lg:p-32 relative"
+      >
+        <div class="max-w-md mx-auto w-full flex flex-col gap-10">
+          <div>
+            <h2
+              class="text-neutral-950 text-4xl font-serif-nova font-black leading-tight"
+            >
+              ¡Bienvenido de nuevo!
+            </h2>
+            <p class="text-neutral-500 text-base mt-2 font-light">
+              Ingresa tus datos para continuar
+            </p>
+          </div>
+
+          <LoginForm client:load />
+
+          <div class="text-center">
+            <a
+              href="/"
+              class="text-neutral-500 text-sm font-medium hover:text-[#EE6239] transition-colors"
+            >
+              ← Volver al catálogo
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

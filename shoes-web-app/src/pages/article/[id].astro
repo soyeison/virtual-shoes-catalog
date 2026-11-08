@@ -1,0 +1,91 @@
+---
+import { CatalogGateway } from "../../modules/catalog/gateways/CatalogGateway";
+import { ImageGallery } from "../../modules/catalog/components/ImageGallery";
+import MainLayout from "../../shared/layouts/MainLayout.astro";
+import type { Article } from "../../modules/catalog/models/Article";
+import { AddToCartButton } from "../../modules/cart/components/AddToCartButton";
+export const prerender = false;
+
+// Capturamos el ID de la URL
+const { id } = Astro.params;
+
+let article: Article | null = null;
+let error = null;
+
+try {
+  if (id) {
+    article = await CatalogGateway.getArticleById(id);
+  }
+} catch (e) {
+  error = "Artículo no encontrado o fuera de inventario.";
+}
+
+const formatter = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: article?.price.currency || "COP",
+  minimumFractionDigits: 0,
+});
+---
+
+<MainLayout title={article ? `${article.name} | NovaRun` : "Error"}>
+  <main class="max-w-7xl mx-auto px-6 py-12">
+    {
+      error || !article ? (
+        <div class="text-center py-20">
+          <h1 class="text-4xl text-white font-bold mb-4">Ups...</h1>
+          <p class="text-red-500">{error}</p>
+          <a href="/" class="text-orange-500 hover:underline mt-6 inline-block">
+            ← Volver al catálogo
+          </a>
+        </div>
+      ) : (
+        <div>
+          <a
+            href="/"
+            class="text-neutral-400 hover:text-white transition-colors flex items-center gap-2 mb-8 uppercase text-xs font-bold tracking-widest"
+          >
+            <span>←</span> Volver al catálogo
+          </a>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <ImageGallery
+              client:load
+              images={article.image_urls}
+              productName={article.name}
+            />
+
+            <div class="flex flex-col pt-4">
+              <span class="text-orange-500 font-bold tracking-widest uppercase text-sm mb-2">
+                Edición Profesional
+              </span>
+              <h1 class="text-4xl md:text-5xl font-black text-white leading-tight mb-4">
+                {article.name}
+              </h1>
+
+              <p class="text-3xl text-white font-light mb-8">
+                {formatter.format(article.price.amount)}
+              </p>
+
+              <div class="prose prose-invert max-w-none text-neutral-400 leading-relaxed mb-10">
+                <p>{article.description}</p>
+              </div>
+
+              <div class="flex items-center gap-4 mb-8">
+                <div class="w-3 h-3 rounded-full bg-green-500" />
+                <span class="text-sm font-bold text-white uppercase tracking-widest">
+                  Stock disponible: {article.stock} unidades
+                </span>
+              </div>
+
+              <AddToCartButton
+                client:load
+                articleId={article.id}
+                stock={article.stock}
+              />
+            </div>
+          </div>
+        </div>
+      )
+    }
+  </main>
+</MainLayout>
