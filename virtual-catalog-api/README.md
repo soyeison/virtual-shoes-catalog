@@ -1,4 +1,6 @@
-Primero se debe ejecutar el comando: docker compose up -d
+Primero se deben configurar las variables de entorno: cp .env.example .env (y completar los valores)
+
+Luego se levanta MinIO desde la raíz del monorepo: docker compose up -d minio minio-setup
 
 Comando para ejecutar la API: uvicorn app.infrastructure.api.main:app --reload
 
