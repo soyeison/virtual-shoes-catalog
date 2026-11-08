@@ -1,6 +1,7 @@
 import sqlite3
 import urllib.request
 import random
+from app.infrastructure.config import settings
 from app.infrastructure.storage.minio_file_storage import MinioFileStorage
 from app.infrastructure.repositories.sqlite_article_repository import (
     SqliteArticleRepository,
@@ -18,14 +19,15 @@ def download_placeholder_image():
 def run_seeder():
     print("Running seeder...")
 
-    db_conn = sqlite3.connect("catalogo.db")
+    db_conn = sqlite3.connect(settings.database_path)
     repo = SqliteArticleRepository(db_conn)
 
     storage = MinioFileStorage(
-        endpoint_url="http://localhost:9000",
-        access_key="admin",
-        secret_key="password123",
-        bucket_name="catalogo-images",
+        endpoint_url=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket_name=settings.minio_bucket,
+        public_url=settings.minio_public_url,
     )
 
     use_case = CreateArticleUseCase(article_repository=repo)

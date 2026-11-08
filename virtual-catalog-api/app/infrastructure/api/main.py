@@ -1,4 +1,3 @@
-import os
 import sqlite3
 from typing import List, Optional
 from fastapi import (
@@ -15,9 +14,9 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from dotenv import load_dotenv
 
 from app.domain.exceptions import DomainException
+from app.infrastructure.config import settings
 from app.application.use_cases.register_user import RegisterUserUseCase
 from app.application.use_cases.login_user import LoginUserUseCase
 from app.application.use_cases.create_article import CreateArticleUseCase
@@ -51,13 +50,9 @@ from app.infrastructure.repositories.sqlite_payment_repository import (
     SqlitePaymentRepository,
 )
 
-load_dotenv()
-
 app = FastAPI(title="Catálogo Virtual - Módulo de Registro")
 
-origins = [
-    "http://localhost:4321",
-]
+origins = settings.cors_origins
 
 app.add_middleware(
     CORSMiddleware,
@@ -132,7 +127,7 @@ class PaymentResponse(BaseModel):
 
 # ---  Inyección de Dependencias (El núcleo de FastAPI) ---
 def get_db_connection():
-    conn = sqlite3.connect("catalogo.db", check_same_thread=False)
+    conn = sqlite3.connect(settings.database_path, check_same_thread=False)
     try:
         yield conn
     finally:
@@ -204,10 +199,11 @@ def get_search_articles_use_case(
 
 def get_file_storage() -> MinioFileStorage:
     return MinioFileStorage(
-        endpoint_url="http://localhost:9000",
-        access_key="admin",
-        secret_key="password123",
-        bucket_name="catalogo-images",
+        endpoint_url=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket_name=settings.minio_bucket,
+        public_url=settings.minio_public_url,
     )
 
 
@@ -271,10 +267,10 @@ def get_payment_repository(db=Depends(get_db_connection)) -> SqlitePaymentReposi
 
 
 def get_payment_gateway() -> PaymentGateway:
-    provider = os.getenv("PAYMENT_GATEWAY_PROVIDER", "mock").lower()
+    provider = settings.payment_gateway_provider.lower()
 
     if provider == "stripe":
-        stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+        stripe_secret_key = settings.stripe_secret_key
         if not stripe_secret_key:
             raise ValueError(
                 "STRIPE_SECRET_KEY variable is missing for Stripe provider."

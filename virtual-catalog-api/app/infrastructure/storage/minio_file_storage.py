@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 import boto3
 from botocore.exceptions import ClientError
 from app.application.ports.file_storage import FileStoragePort
@@ -6,7 +7,12 @@ from app.application.ports.file_storage import FileStoragePort
 
 class MinioFileStorage(FileStoragePort):
     def __init__(
-        self, endpoint_url: str, access_key: str, secret_key: str, bucket_name: str
+        self,
+        endpoint_url: str,
+        access_key: str,
+        secret_key: str,
+        bucket_name: str,
+        public_url: Optional[str] = None,
     ):
         # Configuramos boto3 para que apunte a nuestro localhost en vez de a los servidores de Amazon
         self.s3_client = boto3.client(
@@ -17,6 +23,8 @@ class MinioFileStorage(FileStoragePort):
             region_name="us-east-1",  # Required inclusive for local development
         )
         self.bucket_name = bucket_name
+        # URL base para el navegador; puede diferir del endpoint interno (ej. dentro de Docker)
+        self.public_url = public_url or endpoint_url
 
     def upload_image(self, file_name: str, file_bytes: bytes, content_type: str) -> str:
         unique_file_name = f"{uuid.uuid4().hex[:8]}_{file_name}"
@@ -29,7 +37,7 @@ class MinioFileStorage(FileStoragePort):
                 ContentType=content_type,
             )
 
-            return f"{self.s3_client.meta.endpoint_url}/{self.bucket_name}/{unique_file_name}"
+            return f"{self.public_url}/{self.bucket_name}/{unique_file_name}"
 
         except ClientError as e:
             # Aquí podrías lanzar una excepción personalizada de tu dominio de infraestructura

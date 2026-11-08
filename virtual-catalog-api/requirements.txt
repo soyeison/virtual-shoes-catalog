@@ -9,3 +9,4 @@ boto3==1.43.25
 python-multipart==0.0.32
 stripe==15.2.1
 python-dotenv==1.2.2
+pydantic-settings==2.15.0
