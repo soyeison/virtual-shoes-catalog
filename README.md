@@ -6,18 +6,18 @@ Este repositorio es un **monorepo** con dos proyectos y la orquestación Docker 
 
 | Carpeta | Qué es | Tecnologías |
 | --- | --- | --- |
-| [`virtual-catalog-api/`](virtual-catalog-api/) | API REST del negocio | Python 3.12, FastAPI, arquitectura hexagonal, SQLite, MinIO (boto3), pagos Mock/Stripe |
+| [`virtual-catalog-api/`](virtual-catalog-api/) | API REST del negocio | Python 3.12, FastAPI, arquitectura hexagonal, SQLite, almacenamiento S3 con RustFS (boto3), pagos Mock/Stripe |
 | [`shoes-web-app/`](shoes-web-app/) | Tienda web | Astro 6 (SSR con `@astrojs/node`), React, Zustand, Tailwind |
-| [`docker-compose.yml`](docker-compose.yml) | Levanta todo el sistema | MinIO, API y web en contenedores |
+| [`docker-compose.yml`](docker-compose.yml) | Levanta todo el sistema | RustFS, API y web en contenedores |
 | [`docs/`](docs/) | Documentación transversal | Arquitectura del sistema y Docker |
 
 ```mermaid
 flowchart LR
     U[Navegador] -->|HTML :4321| WEB[shoes-web-app<br/>Astro SSR]
     U -->|fetch JSON :8000| API[virtual-catalog-api<br/>FastAPI]
-    U -->|imágenes :9000| MINIO[(MinIO<br/>bucket catalogo-images)]
+    U -->|imágenes :9000| STORAGE[(RustFS S3<br/>bucket catalogo-images)]
     WEB -->|SSR: http://api:8000| API
-    API -->|boto3: http://minio:9000| MINIO
+    API -->|boto3: http://storage:9000| STORAGE
     API --> DB[(SQLite<br/>data/catalogo.db)]
 ```
 
@@ -38,16 +38,16 @@ Requisitos: Docker con Docker Compose v2 (`docker compose`). Todos los comandos 
    ```dotenv
    DATABASE_PATH=data/catalogo.db
    CORS_ORIGINS=["http://localhost:4321"]
-   MINIO_ENDPOINT=http://localhost:9000
-   MINIO_PUBLIC_URL=http://localhost:9000
-   MINIO_ACCESS_KEY=admin
-   MINIO_SECRET_KEY=password123
-   MINIO_BUCKET=catalogo-images
+   S3_ENDPOINT=http://localhost:9000
+   S3_PUBLIC_URL=http://localhost:9000
+   S3_ACCESS_KEY=admin
+   S3_SECRET_KEY=password123
+   S3_BUCKET=catalogo-images
    PAYMENT_GATEWAY_PROVIDER=mock
    STRIPE_SECRET_KEY=
    ```
 
-   `CORS_ORIGINS`, `MINIO_ENDPOINT` y `MINIO_PUBLIC_URL` se sobrescriben dentro de Docker; los valores de arriba sirven además para ejecutar la API fuera de Docker. Detalle en [docs/docker.md](docs/docker.md#variables-de-entorno).
+   `CORS_ORIGINS`, `S3_ENDPOINT` y `S3_PUBLIC_URL` se sobrescriben dentro de Docker; los valores de arriba sirven además para ejecutar la API fuera de Docker. Detalle en [docs/docker.md](docs/docker.md#variables-de-entorno).
 
 2. **Construir y levantar** los servicios:
 
@@ -55,7 +55,7 @@ Requisitos: Docker con Docker Compose v2 (`docker compose`). Todos los comandos 
    docker compose up -d --build
    ```
 
-   El orden de arranque es automático: `minio` → `minio-setup` (crea el bucket y termina) → `api` → `web`.
+   El orden de arranque es automático: `storage` → `storage-setup` (crea el bucket y termina) → `api` → `web`.
 
 3. **Cargar los datos de prueba** (20 artículos con imágenes):
 
@@ -72,8 +72,8 @@ Requisitos: Docker con Docker Compose v2 (`docker compose`). Todos los comandos 
    | Tienda web | http://localhost:4321 | |
    | API | http://localhost:8000/api/v1 | Prefijo de todos los endpoints |
    | Swagger de la API | http://localhost:8000/docs | Probar endpoints desde el navegador |
-   | MinIO (API S3) | http://localhost:9000 | De aquí descarga el navegador las imágenes |
-   | Consola de MinIO | http://localhost:9001 | Usuario `admin`, contraseña `password123` |
+   | RustFS (API S3) | http://localhost:9000 | De aquí descarga el navegador las imágenes |
+   | Consola de RustFS | http://localhost:9001/rustfs/console/ | Usuario `admin`, contraseña `password123` |
 
 Para detener: `docker compose down` (conserva los datos). `docker compose down -v` borra también la base de datos y las imágenes. Más comandos en [docs/docker.md](docs/docker.md#comandos-habituales).
 
@@ -116,6 +116,6 @@ Todos los perfiles empiezan por este README y por [docs/architecture.md](docs/ar
 
 1. [docs/docker.md](docs/docker.md): servicios, imágenes, volúmenes, variables y comandos.
 2. [API: configuration.md](virtual-catalog-api/docs/configuration.md) y [Web: configuration.md](shoes-web-app/docs/configuration.md): todas las variables de entorno.
-3. [API: storage.md](virtual-catalog-api/docs/storage.md): MinIO y URLs interna/pública.
+3. [API: storage.md](virtual-catalog-api/docs/storage.md): RustFS y URLs interna/pública.
 4. [API: testing.md](virtual-catalog-api/docs/testing.md): cómo ejecutar los tests (también dentro del contenedor).
 5. [API: known-issues.md](virtual-catalog-api/docs/known-issues.md): credenciales fijas y otros puntos a resolver antes de producción.

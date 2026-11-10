@@ -12,8 +12,8 @@ Vista de conjunto: qué componentes hay, cómo se comunican y por qué cada uno 
 | **web** | [`shoes-web-app/`](../shoes-web-app/README.md) (Astro 6 + React, `@astrojs/node` standalone) | `4321` | Renderiza el HTML en el servidor (SSR) y entrega las islas React que se hidratan en el navegador |
 | **api** | [`virtual-catalog-api/`](../virtual-catalog-api/README.md) (FastAPI + uvicorn) | `8000` | Lógica de negocio: usuarios, catálogo, carrito, pedidos y pagos. Prefijo `/api/v1` |
 | **SQLite** | Archivo `data/catalogo.db` dentro de la API | — | Persistencia de todas las entidades ([database.md](../virtual-catalog-api/docs/database.md)) |
-| **minio** | `minio/minio` | `9000` (S3), `9001` (consola) | Almacena las imágenes de los artículos, bucket público `catalogo-images` ([storage.md](../virtual-catalog-api/docs/storage.md)) |
-| **minio-setup** | `minio/mc` | — | Tarea de arranque: crea el bucket y lo hace público, luego termina |
+| **storage** | `rustfs/rustfs` (RustFS, compatible con S3) | `9000` (S3), `9001` (consola) | Almacena las imágenes de los artículos, bucket `catalogo-images` con lectura pública de objetos ([storage.md](../virtual-catalog-api/docs/storage.md)) |
+| **storage-setup** | `amazon/aws-cli` | — | Tarea de arranque: crea el bucket con lectura pública de objetos, luego termina |
 | Pasarela de pago | Mock (en proceso) o Stripe (externo) | — | Cobro de pedidos ([payments.md](../virtual-catalog-api/docs/payments.md)) |
 
 SQLite no es un servicio: es un archivo que la API abre directamente. Solo la API lo toca.
@@ -27,8 +27,8 @@ flowchart LR
     subgraph Red["Red Docker: project-virtual-catalog_default"]
         WEB["web<br/>Node + Astro SSR<br/>:4321"]
         API["api<br/>FastAPI<br/>:8000"]
-        MINIO[("minio<br/>:9000 / :9001")]
-        SETUP["minio-setup<br/>(termina)"]
+        STORAGE[("storage (RustFS)<br/>:9000 / :9001")]
+        SETUP["storage-setup<br/>(termina)"]
         DB[("SQLite<br/>volumen api_data")]
     end
 
@@ -37,18 +37,18 @@ flowchart LR
     B -- "1. GET páginas<br/>localhost:4321" --> WEB
     WEB -- "2. SSR<br/>http://api:8000/api/v1" --> API
     B -- "3. fetch desde islas React<br/>http://localhost:8000/api/v1" --> API
-    B -- "4. &lt;img src&gt;<br/>http://localhost:9000/catalogo-images/..." --> MINIO
-    API -- "boto3 put_object<br/>http://minio:9000" --> MINIO
+    B -- "4. &lt;img src&gt;<br/>http://localhost:9000/catalogo-images/..." --> STORAGE
+    API -- "boto3 put_object<br/>http://storage:9000" --> STORAGE
     API --> DB
     API -. "si PAYMENT_GATEWAY_PROVIDER=stripe" .-> STRIPE
-    SETUP -- "mc mb / anonymous set public" --> MINIO
+    SETUP -- "create-bucket / put-bucket-policy" --> STORAGE
 ```
 
 Puntos clave:
 
-- **El navegador habla con los tres servicios publicados**: web (HTML), API (datos desde React) y MinIO (imágenes). Las imágenes nunca pasan por la API.
-- **Dentro de la red Docker** los servicios se llaman por su nombre (`api`, `minio`). Ese nombre solo existe dentro de la red; el navegador no lo puede resolver.
-- La web **no** accede a MinIO ni a SQLite: solo recibe URLs de imágenes ya construidas por la API.
+- **El navegador habla con los tres servicios publicados**: web (HTML), API (datos desde React) y RustFS (imágenes). Las imágenes nunca pasan por la API.
+- **Dentro de la red Docker** los servicios se llaman por su nombre (`api`, `storage`). Ese nombre solo existe dentro de la red; el navegador no lo puede resolver.
+- La web **no** accede a RustFS ni a SQLite: solo recibe URLs de imágenes ya construidas por la API.
 
 ## URLs internas y públicas
 
@@ -58,8 +58,8 @@ Cada vez que un componente llama a otro hay que preguntarse **desde dónde** se 
 | --- | --- | --- | --- | --- |
 | API | Servidor Astro (SSR) | `http://api:8000/api/v1` | `http://localhost:8000/api/v1` | `INTERNAL_API_URL` (web, runtime) |
 | API | Navegador (islas React) | `http://localhost:8000/api/v1` | `http://localhost:8000/api/v1` | `PUBLIC_API_URL` (web, **build**) |
-| MinIO | API (subida con boto3) | `http://minio:9000` | `http://localhost:9000` | `MINIO_ENDPOINT` (api) |
-| MinIO | Navegador (descarga de imágenes) | `http://localhost:9000` | `http://localhost:9000` | `MINIO_PUBLIC_URL` (api) |
+| RustFS | API (subida con boto3) | `http://storage:9000` | `http://localhost:9000` | `S3_ENDPOINT` (api) |
+| RustFS | Navegador (descarga de imágenes) | `http://localhost:9000` | `http://localhost:9000` | `S3_PUBLIC_URL` (api) |
 
 ### API: `INTERNAL_API_URL` vs. `PUBLIC_API_URL`
 
@@ -78,9 +78,9 @@ const BASE_URL = import.meta.env.SSR
 
 Detalle de las variables de la web: [shoes-web-app/docs/configuration.md](../shoes-web-app/docs/configuration.md).
 
-### MinIO: `MINIO_ENDPOINT` vs. `MINIO_PUBLIC_URL`
+### RustFS: `S3_ENDPOINT` vs. `S3_PUBLIC_URL`
 
-La API sube las imágenes con `MINIO_ENDPOINT` y guarda en la base de datos la URL **completa** construida con `MINIO_PUBLIC_URL` (`{MINIO_PUBLIC_URL}/{bucket}/{clave}`). Consecuencia: si cambias `MINIO_PUBLIC_URL`, las imágenes ya guardadas siguen apuntando a la URL anterior; hay que volver a ejecutar el seed. Detalle en [storage.md](../virtual-catalog-api/docs/storage.md#endpoint-interno-y-url-pública).
+La API sube las imágenes con `S3_ENDPOINT` y guarda en la base de datos la URL **completa** construida con `S3_PUBLIC_URL` (`{S3_PUBLIC_URL}/{bucket}/{clave}`). Consecuencia: si cambias `S3_PUBLIC_URL`, las imágenes ya guardadas siguen apuntando a la URL anterior; hay que volver a ejecutar el seed. Detalle en [storage.md](../virtual-catalog-api/docs/storage.md#endpoint-interno-y-url-pública).
 
 ### CORS
 
@@ -96,7 +96,7 @@ sequenceDiagram
     participant B as Navegador
     participant W as web (Node, Astro SSR)
     participant A as api (FastAPI)
-    participant M as minio
+    participant M as storage
 
     Note over B,A: Petición SSR: carga de la página /article/{id}
     B->>W: GET http://localhost:4321/article/{id}
@@ -137,7 +137,7 @@ sequenceDiagram
     U->>W: Abre / (SSR)
     W->>A: GET /articles/search?page=1
     A->>DB: consulta artículos
-    W-->>U: Catálogo (imágenes desde MinIO)
+    W-->>U: Catálogo (imágenes desde RustFS)
 
     U->>A: POST /auth/register o /auth/login (desde /login)
     A-->>U: JWT (la web extrae el user_id del token y lo guarda en localStorage)
@@ -172,7 +172,7 @@ Notas:
 | Dato | Dónde vive | En Docker |
 | --- | --- | --- |
 | Usuarios, artículos, carritos, pedidos, pagos | SQLite (`DATABASE_PATH`, p. ej. `data/catalogo.db`) | Volumen `api_data` en `/app/data` |
-| Imágenes de artículos | Bucket `catalogo-images` de MinIO | Volumen `minio_data` en `/data` |
+| Imágenes de artículos | Bucket `catalogo-images` de RustFS | Volumen `storage_data` en `/data` |
 | Sesión del usuario (token, `user_id`) | `localStorage` del navegador (`auth-storage`) | — |
 
 Gestión de volúmenes y cómo reiniciar los datos: [docker.md](docker.md#volúmenes).

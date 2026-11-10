@@ -10,32 +10,38 @@ Para entender por qué hay URLs internas y públicas, lee primero [architecture.
 name: project-virtual-catalog
 ```
 
-El nombre de proyecto es fijo y coincide con el del compose antiguo (que vivía en `virtual-catalog-api/`), para que Docker reutilice sus contenedores y, sobre todo, su volumen `minio_data` con las imágenes ya subidas. Todos los recursos llevan el prefijo `project-virtual-catalog_`.
+El nombre de proyecto es fijo y coincide con el del compose antiguo (que vivía en `virtual-catalog-api/`), para que Docker reutilice sus volúmenes (por ejemplo, `api_data` con la base de datos). Todos los recursos llevan el prefijo `project-virtual-catalog_`.
 
 | Servicio | Imagen / build | `container_name` | Puertos (host:contenedor) | Ciclo de vida |
 | --- | --- | --- | --- | --- |
-| `minio` | `minio/minio:latest` | `catalogo_minio` | `9000:9000` (API S3), `9001:9001` (consola) | Permanente |
-| `minio-setup` | `minio/mc:latest` | `catalogo_minio_setup` | — | Se ejecuta y termina (`Exited (0)`) |
+| `storage` | `rustfs/rustfs:1.0.4` | `catalogo_storage` | `9000:9000` (API S3), `9001:9001` (consola) | Permanente |
+| `storage-setup` | `amazon/aws-cli:2.31.0` | `catalogo_storage_setup` | — | Se ejecuta y termina (`Exited (0)`) |
 | `api` | build `./virtual-catalog-api` | `catalogo_api` | `8000:8000` | Permanente |
 | `web` | build `./shoes-web-app` | `catalogo_web` | `4321:4321` | Permanente |
 
-### `minio`
+### `storage`
 
-Servidor de objetos compatible con S3. Credenciales de administrador en el propio compose: `MINIO_ROOT_USER=admin`, `MINIO_ROOT_PASSWORD=password123`. Ejecuta `server /data --console-address ":9001"`.
+Servidor de objetos compatible con S3 ([RustFS](https://github.com/rustfs/rustfs)). Reemplaza a MinIO, cuyas imágenes oficiales ya no están disponibles en Docker Hub. Se configura con variables de entorno:
 
-### `minio-setup`
+| Variable | Valor | Para qué |
+| --- | --- | --- |
+| `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` | `admin` / `password123` | Credenciales de administrador |
+| `RUSTFS_ADDRESS` | `:9000` | API S3 |
+| `RUSTFS_CONSOLE_ENABLE` / `RUSTFS_CONSOLE_ADDRESS` | `true` / `:9001` | Consola web en http://localhost:9001/rustfs/console/ |
+| `RUSTFS_OBS_LOG_DIRECTORY` | vacío | Envía los logs a stdout (`docker compose logs storage`) en lugar de a un archivo dentro del contenedor |
 
-Cliente `mc` que prepara MinIO y termina:
+Su `healthcheck` consulta `http://localhost:9000/health`; el servicio aparece como `healthy` cuando ya acepta peticiones.
+
+### `storage-setup`
+
+Contenedor de `aws-cli` que prepara el bucket y termina:
 
 ```sh
-sleep 5
-mc alias set local http://minio:9000 admin password123
-mc mb local/catalogo-images || true      # crea el bucket (no falla si ya existe)
-mc anonymous set public local/catalogo-images   # lectura pública para el navegador
-exit 0
+aws --endpoint-url http://storage:9000 s3api create-bucket --bucket catalogo-images
+aws --endpoint-url http://storage:9000 s3api put-bucket-policy --bucket catalogo-images --policy '<lectura pública de objetos>'
 ```
 
-Termina siempre con código `0`, incluso si algún paso falló (ver [problemas comunes](#problemas-comunes)).
+Se ejecuta con `sh -e`: si un paso falla, termina con código distinto de `0` y la API no arranca. Crear el bucket cuando ya existe no es un error, así que puede repetirse en cada `up`. La política se explica en [storage.md](../virtual-catalog-api/docs/storage.md#política-del-bucket).
 
 ### `api`
 
@@ -74,24 +80,25 @@ Build multi-etapa sobre `node:22-alpine`:
 
 ```mermaid
 flowchart LR
-    M[minio] -->|depends_on<br/>arrancado| S[minio-setup]
+    M[storage] -->|service_healthy| S[storage-setup]
     S -->|service_completed_successfully| A[api]
     A -->|depends_on<br/>arrancado| W[web]
 ```
 
-- `api` espera a que `minio-setup` **termine con éxito**, es decir, a que exista el bucket.
-- `minio-setup` y `web` solo esperan a que su dependencia **arranque**, no a que esté lista (no hay `healthcheck`). Por eso `minio-setup` hace `sleep 5` antes de conectarse.
+- `storage-setup` espera a que `storage` esté **sano** (`healthcheck`), así que no hace falta esperar un tiempo fijo.
+- `api` espera a que `storage-setup` **termine con éxito**, es decir, a que exista el bucket con su política.
+- `web` solo espera a que `api` **arranque**, no a que esté lista (la API no tiene `healthcheck`).
 - Si la API tarda en arrancar, las primeras peticiones SSR de la web pueden fallar; basta con recargar.
 
 ## Redes
 
-No se declaran redes: Compose crea la red por defecto `project-virtual-catalog_default` y conecta los cuatro servicios. Dentro de ella cada servicio se resuelve por su nombre (`minio`, `api`, `web`). Desde el host solo se llega a los puertos publicados en `localhost`.
+No se declaran redes: Compose crea la red por defecto `project-virtual-catalog_default` y conecta los cuatro servicios. Dentro de ella cada servicio se resuelve por su nombre (`storage`, `api`, `web`). Desde el host solo se llega a los puertos publicados en `localhost`.
 
 ## Volúmenes
 
 | Volumen (nombre real) | Montado en | Contiene |
 | --- | --- | --- |
-| `project-virtual-catalog_minio_data` | `minio:/data` | Buckets e imágenes |
+| `project-virtual-catalog_storage_data` | `storage:/data` | Buckets e imágenes |
 | `project-virtual-catalog_api_data` | `api:/app/data` | Base de datos SQLite (`catalogo.db`) |
 
 `DATABASE_PATH=data/catalogo.db` es relativo a la carpeta de la API, así que se resuelve a `virtual-catalog-api/data/catalogo.db` en local y a `/app/data/catalogo.db` en el contenedor, justo donde se monta `api_data` (ver [configuration.md](../virtual-catalog-api/docs/configuration.md#valores-en-docker)). La base de datos local y la del contenedor son **archivos distintos**.
@@ -108,17 +115,17 @@ docker volume ls | grep project-virtual-catalog
 
 | Variable | Valor en el compose | Por qué |
 | --- | --- | --- |
-| `MINIO_ENDPOINT` | `http://minio:9000` | Dentro del contenedor `localhost` es la propia API; a MinIO se llega por su nombre de servicio |
-| `MINIO_PUBLIC_URL` | `http://localhost:9000` | Es la URL que se guarda en la base de datos y usa el navegador, que solo conoce el puerto publicado |
+| `S3_ENDPOINT` | `http://storage:9000` | Dentro del contenedor `localhost` es la propia API; al almacenamiento se llega por su nombre de servicio |
+| `S3_PUBLIC_URL` | `http://localhost:9000` | Es la URL que se guarda en la base de datos y usa el navegador, que solo conoce el puerto publicado |
 | `CORS_ORIGINS` | `["http://localhost:4321"]` | Origen de la web publicada por el compose |
 
 Lo que **no** se sobrescribe y debe ser coherente con el compose:
 
 | Variable | Debe valer | Coincide con |
 | --- | --- | --- |
-| `MINIO_ACCESS_KEY` | `admin` | `MINIO_ROOT_USER` de `minio` |
-| `MINIO_SECRET_KEY` | `password123` | `MINIO_ROOT_PASSWORD` de `minio` |
-| `MINIO_BUCKET` | `catalogo-images` | Bucket creado por `minio-setup` |
+| `S3_ACCESS_KEY` | `admin` | `RUSTFS_ACCESS_KEY` de `storage` |
+| `S3_SECRET_KEY` | `password123` | `RUSTFS_SECRET_KEY` de `storage` |
+| `S3_BUCKET` | `catalogo-images` | Bucket creado por `storage-setup` |
 | `DATABASE_PATH` | `data/catalogo.db` (relativa) | Punto de montaje de `api_data` |
 | `PAYMENT_GATEWAY_PROVIDER` | `mock` o `stripe` | — |
 
@@ -149,9 +156,9 @@ Si cambias el `.env` de la API, basta con `docker compose up -d api`: Compose de
 | Construir y levantar todo | `docker compose up -d --build` |
 | Levantar sin reconstruir | `docker compose up -d` |
 | Reconstruir un servicio | `docker compose build api` / `docker compose up -d --build web` |
-| Estado de los servicios | `docker compose ps -a` (`-a` muestra también `minio-setup` terminado) |
+| Estado de los servicios | `docker compose ps -a` (`-a` muestra también `storage-setup` terminado) |
 | Logs (seguir) | `docker compose logs -f api` / `docker compose logs -f web` |
-| Logs de la preparación de MinIO | `docker compose logs minio-setup` |
+| Logs del almacenamiento y su preparación | `docker compose logs storage storage-setup` |
 | Cargar datos de prueba | `docker compose exec api python seed.py` |
 | Tests de la API en el contenedor | `docker compose exec api pytest -v` |
 | Shell en un contenedor | `docker compose exec api sh` / `docker compose exec web sh` |
@@ -162,7 +169,7 @@ Si cambias el `.env` de la API, basta con `docker compose up -d api`: Compose de
 
 `docker compose down` elimina contenedores y la red, pero **conserva** los volúmenes: al volver a levantar, la base de datos y las imágenes siguen ahí.
 
-`docker compose down -v` borra además `minio_data` y `api_data`: **se pierden todos los usuarios, artículos, pedidos e imágenes**. Al volver a levantar, `minio-setup` recrea el bucket vacío y hay que ejecutar de nuevo el seed. Es la forma de empezar de cero (el seed no es idempotente, ver [seed.md](../virtual-catalog-api/docs/seed.md)).
+`docker compose down -v` borra además `storage_data` y `api_data`: **se pierden todos los usuarios, artículos, pedidos e imágenes**. Al volver a levantar, `storage-setup` recrea el bucket vacío y hay que ejecutar de nuevo el seed. Es la forma de empezar de cero (el seed no es idempotente, ver [seed.md](../virtual-catalog-api/docs/seed.md)).
 
 El seed necesita internet desde el contenedor: además de las imágenes de `static/`, descarga una imagen de `https://picsum.photos` por artículo.
 
@@ -170,10 +177,10 @@ El seed necesita internet desde el contenedor: además de las imágenes de `stat
 
 Para iterar rápido (recarga en caliente), se puede dejar en Docker solo lo que no cambia.
 
-### Solo MinIO en Docker, API y web locales
+### Solo el almacenamiento en Docker, API y web locales
 
 ```bash
-docker compose up -d minio minio-setup
+docker compose up -d storage storage-setup
 ```
 
 Luego, en dos terminales:
@@ -186,14 +193,14 @@ uvicorn app.infrastructure.api.main:app --reload
 npm run dev
 ```
 
-- La API usa los valores del `.env` tal cual (`MINIO_ENDPOINT=http://localhost:9000`), porque corre en el host. Guía completa: [API: development.md](../virtual-catalog-api/docs/development.md).
+- La API usa los valores del `.env` tal cual (`S3_ENDPOINT=http://localhost:9000`), porque corre en el host. Guía completa: [API: development.md](../virtual-catalog-api/docs/development.md).
 - La web solo necesita `PUBLIC_API_URL=http://localhost:8000/api/v1`; sin `INTERNAL_API_URL`, el SSR usa esa misma URL. Guía completa: [Web: development.md](../shoes-web-app/docs/development.md).
 - La API local usa `virtual-catalog-api/data/catalogo.db`, no la base del volumen: ejecuta `python seed.py` localmente.
 
 ### API en Docker, web local
 
 ```bash
-docker compose up -d api      # arranca también minio y minio-setup
+docker compose up -d api      # arranca también storage y storage-setup
 cd shoes-web-app && npm run dev
 ```
 
@@ -207,12 +214,14 @@ Funciona porque el puerto `8000` está publicado y `CORS_ORIGINS` permite `http:
 | --- | --- |
 | `env file .../virtual-catalog-api/.env not found` | Falta el `.env` de la API. `cp virtual-catalog-api/.env.example virtual-catalog-api/.env` y complétalo. |
 | `api` aparece como `Exited (1)` con `ValidationError ... Field required` en los logs | Falta una variable en el `.env` o quedó vacía. `docker compose logs api` indica cuál; corrige y ejecuta `docker compose up -d api`. |
-| `Conflict. The container name "/catalogo_minio" is already in use` | Existe un contenedor con ese nombre fijo que pertenece a otro proyecto de Compose (por ejemplo, el compose antiguo levantado con otro nombre de proyecto). Revisa con `docker ps -a --filter name=catalogo_` y elimínalo con `docker rm -f catalogo_minio`; los datos están en el volumen, no en el contenedor. |
+| `Conflict. The container name "/catalogo_storage" is already in use` | Existe un contenedor con ese nombre fijo que pertenece a otro proyecto de Compose (por ejemplo, el compose antiguo levantado con otro nombre de proyecto). Revisa con `docker ps -a --filter name=catalogo_` y elimínalo con `docker rm -f catalogo_storage`; los datos están en el volumen, no en el contenedor. |
 | `Bind for 0.0.0.0:8000 failed: port is already allocated` (o 4321, 9000, 9001) | Otro proceso usa el puerto, a menudo la API o la web ejecutándose en local. Detén ese proceso o cambia el puerto del host en el compose (`"8001:8000"`, y entonces actualiza también `PUBLIC_API_URL` y reconstruye la web). |
 | `npm run dev` arranca en `4322` en lugar de `4321` | El contenedor `web` ocupa el 4321. Detenlo (`docker compose stop web`); si no, el origen `localhost:4322` no está en `CORS_ORIGINS`. |
-| Las imágenes no cargan en el navegador | `MINIO_PUBLIC_URL` no es accesible desde el navegador o las URLs guardadas son de otra configuración (por ejemplo, se sembró con `http://minio:9000`). Revisa una URL en `GET /api/v1/articles` y, si está mal, ejecuta `docker compose down -v`, levanta y vuelve a sembrar. |
-| Imágenes con `403 AccessDenied` | El bucket no es público: `minio-setup` falló (p. ej. MinIO tardó más de 5 s). Revisa `docker compose logs minio-setup` y ejecútalo de nuevo con `docker compose up minio-setup`. |
-| `500 Error al subir la imagen a MinIO` al sembrar o crear artículos | El bucket no existe o `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY`/`MINIO_BUCKET` del `.env` no coinciden con el compose. |
+| Las imágenes no cargan en el navegador | `S3_PUBLIC_URL` no es accesible desde el navegador o las URLs guardadas son de otra configuración (por ejemplo, se sembró con `http://storage:9000`, o son imágenes del antiguo MinIO). Revisa una URL en `GET /api/v1/articles` y, si está mal, ejecuta `docker compose down -v`, levanta y vuelve a sembrar. |
+| Imágenes con `403 AccessDenied` | El bucket no tiene la política pública: revisa `docker compose logs storage-setup` y ejecútalo de nuevo con `docker compose up storage-setup`. |
+| `500 Error al subir la imagen al almacenamiento S3` al sembrar o crear artículos | El bucket no existe o `S3_ACCESS_KEY`/`S3_SECRET_KEY`/`S3_BUCKET` del `.env` no coinciden con el compose. |
+| `pull access denied for minio/minio` | Es un compose antiguo: las imágenes de MinIO ya no están en Docker Hub. Usa el compose actual (RustFS) y sigue [Migrar desde MinIO](../virtual-catalog-api/docs/storage.md#migrar-desde-minio). |
+| `ValidationError` con `s3_endpoint ... Field required` | Tu `.env` todavía usa los nombres antiguos `MINIO_*`. Renómbralos a `S3_*` (ver [`.env.example`](../virtual-catalog-api/.env.example)). |
 | La web muestra "No pudimos conectar con el almacén" | El SSR no alcanza la API: el contenedor `api` no está arriba o `INTERNAL_API_URL` es incorrecta. Revisa `docker compose ps` y `docker compose logs api`. |
 | Error de CORS en la consola del navegador | Abriste la web con un origen distinto de `http://localhost:4321` (p. ej. `127.0.0.1`). Usa `localhost` o agrega el origen a `CORS_ORIGINS` en el compose. |
 | Cambié `PUBLIC_API_URL` y la web sigue usando la anterior | Es un build arg: `docker compose up -d --build web`. |
