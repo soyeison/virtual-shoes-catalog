@@ -2,33 +2,45 @@
 name: project-virtual-catalog
 
 services:
-  minio:
-    image: minio/minio:latest
-    container_name: catalogo_minio
+  # Almacenamiento de imágenes compatible con S3
+  storage:
+    image: rustfs/rustfs:1.0.4
+    container_name: catalogo_storage
     ports:
       - "9000:9000" # Puerto de la API (S3)
       - "9001:9001" # Puerto de la Consola Web (Interfaz gráfica)
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: password123
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_OBS_LOG_DIRECTORY: "" # Logs a stdout (docker compose logs storage)
     volumes:
-      - minio_data:/data
-    command: server /data --console-address ":9001"
+      - storage_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
-  # Este servicio crea el bucket automáticamente y luego se apaga
-  minio-setup:
-    image: minio/mc:latest
-    container_name: catalogo_minio_setup
+  # Este servicio crea el bucket con lectura pública de objetos y luego se apaga
+  storage-setup:
+    image: amazon/aws-cli:2.31.0
+    container_name: catalogo_storage_setup
     depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      sleep 5;
-      mc alias set local http://minio:9000 admin password123;
-      mc mb local/catalogo-images || true;
-      mc anonymous set public local/catalogo-images;
-      exit 0;
-      "
+      storage:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password123
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: /bin/sh
+    command:
+      - -ec
+      - |
+        aws --endpoint-url http://storage:9000 s3api create-bucket --bucket catalogo-images
+        aws --endpoint-url http://storage:9000 s3api put-bucket-policy --bucket catalogo-images --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::catalogo-images/*"]}]}'
 
   api:
     build: ./virtual-catalog-api
@@ -38,14 +50,14 @@ services:
     # Sobrescribe solo los valores que cambian dentro de la red de Docker
     environment:
       CORS_ORIGINS: '["http://localhost:4321"]'
-      MINIO_ENDPOINT: http://minio:9000 # La API llega a MinIO por la red interna
-      MINIO_PUBLIC_URL: http://localhost:9000 # El navegador descarga las imágenes por el host
+      S3_ENDPOINT: http://storage:9000 # La API llega al almacenamiento por la red interna
+      S3_PUBLIC_URL: http://localhost:9000 # El navegador descarga las imágenes por el host
     volumes:
       - api_data:/app/data
     ports:
       - "8000:8000"
     depends_on:
-      minio-setup:
+      storage-setup:
         condition: service_completed_successfully
 
   web:
@@ -62,5 +74,5 @@ services:
       - api
 
 volumes:
-  minio_data:
+  storage_data:
   api_data:
