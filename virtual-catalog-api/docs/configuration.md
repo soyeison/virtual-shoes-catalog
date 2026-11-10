@@ -22,7 +22,7 @@ settings = Settings()
 - **Sin valores por defecto**: todas las variables son obligatorias, salvo `STRIPE_SECRET_KEY`. Si falta alguna, la aplicación **no arranca** y pydantic indica cuál falta:
   ```
   pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings
-  minio_bucket
+  s3_bucket
     Field required [type=missing]
   ```
 - **Origen de los valores**, de mayor a menor prioridad:
@@ -44,15 +44,17 @@ Plantilla: [`.env.example`](../.env.example).
 | --- | --- | --- |
 | `DATABASE_PATH` | Archivo SQLite. Si es relativo, se resuelve desde `BASE_DIR` y se crea la carpeta | `data/catalogo.db` |
 | `CORS_ORIGINS` | Orígenes permitidos por CORS, **como lista JSON** | `["http://localhost:4321"]` |
-| `MINIO_ENDPOINT` | URL con la que la API se conecta a MinIO | `http://localhost:9000` |
-| `MINIO_PUBLIC_URL` | URL base de las imágenes para el navegador | `http://localhost:9000` |
-| `MINIO_ACCESS_KEY` | Usuario de MinIO | `admin` |
-| `MINIO_SECRET_KEY` | Contraseña de MinIO | `password123` |
-| `MINIO_BUCKET` | Bucket de imágenes | `catalogo-images` |
+| `S3_ENDPOINT` | URL con la que la API se conecta a RustFS | `http://localhost:9000` |
+| `S3_PUBLIC_URL` | URL base de las imágenes para el navegador | `http://localhost:9000` |
+| `S3_ACCESS_KEY` | Usuario de RustFS | `admin` |
+| `S3_SECRET_KEY` | Contraseña de RustFS | `password123` |
+| `S3_BUCKET` | Bucket de imágenes | `catalogo-images` |
 | `PAYMENT_GATEWAY_PROVIDER` | `mock` o `stripe` | `mock` |
 | `STRIPE_SECRET_KEY` | Clave secreta de Stripe (opcional; solo si el proveedor es `stripe`) | `sk_test_...` |
 
 `CORS_ORIGINS` debe ser JSON válido porque es una lista: `["http://localhost:4321","http://127.0.0.1:4321"]`.
+
+> **Nombres antiguos.** Hasta el cambio de MinIO a RustFS estas variables se llamaban `MINIO_ENDPOINT`, `MINIO_PUBLIC_URL`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` y `MINIO_BUCKET`. Los nombres antiguos ya no se leen (`extra="ignore"`): si tu `.env` todavía los usa, la API no arranca y pydantic indica `s3_endpoint Field required`. Renómbralos con el prefijo `S3_`; los valores no cambian.
 
 ## Valores en Docker
 
@@ -60,8 +62,8 @@ El `docker-compose.yml` de la raíz carga `virtual-catalog-api/.env` (`env_file`
 
 | Variable | Valor en Docker | Por qué |
 | --- | --- | --- |
-| `MINIO_ENDPOINT` | `http://minio:9000` | Dentro del contenedor, `localhost` es el propio contenedor |
-| `MINIO_PUBLIC_URL` | `http://localhost:9000` | El navegador accede por el puerto publicado en el host |
+| `S3_ENDPOINT` | `http://storage:9000` | Dentro del contenedor, `localhost` es el propio contenedor |
+| `S3_PUBLIC_URL` | `http://localhost:9000` | El navegador accede por el puerto publicado en el host |
 | `CORS_ORIGINS` | `["http://localhost:4321"]` | Origen del frontend publicado por el compose |
 
 `DATABASE_PATH` no se sobrescribe: el mismo valor relativo (`data/catalogo.db`) apunta a `/app/data/catalogo.db`, donde se monta el volumen `api_data`.

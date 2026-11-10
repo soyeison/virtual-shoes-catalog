@@ -27,7 +27,7 @@ En Docker:
 docker compose exec api pytest -v
 ```
 
-Los tests **no necesitan** `.env`, MinIO ni la base de datos real: no importan `main.py` ni `config.py`.
+Los tests **no necesitan** `.env`, RustFS ni la base de datos real: no importan `main.py` ni `config.py`.
 
 ## Cómo están construidos
 
@@ -95,7 +95,7 @@ Comprueban que guardar y leer conserve los datos (mappers, JSON, `Decimal`, fech
 | `app/infrastructure/api/main.py` (endpoints, DI, manejadores de error) | 0 % |
 | `app/infrastructure/gateways/` (Mock y Stripe) | 0 % |
 | `app/infrastructure/security/` (bcrypt, JWT) | 0 % |
-| `app/infrastructure/storage/minio_file_storage.py` | 0 % |
+| `app/infrastructure/storage/s3_file_storage.py` | 0 % |
 | `app/infrastructure/config.py` | 0 % |
 | `ProcessPaymentUseCase` | sin tests propios |
 

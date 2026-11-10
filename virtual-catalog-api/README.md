@@ -2,7 +2,7 @@
 
 API REST del catálogo virtual de zapatos: registro e inicio de sesión de usuarios, catálogo con búsqueda, carrito de compras, checkout y pagos.
 
-**Stack:** Python 3.12 · FastAPI · SQLite · MinIO (S3, imágenes) · Stripe (pagos) · pytest
+**Stack:** Python 3.12 · FastAPI · SQLite · RustFS (S3, imágenes) · Stripe (pagos) · pytest
 
 Arquitectura hexagonal (puertos y adaptadores) con dominio, aplicación e infraestructura separados.
 
@@ -11,7 +11,7 @@ Arquitectura hexagonal (puertos y adaptadores) con dominio, aplicación e infrae
 ```bash
 cp .env.example .env                      # y completar los valores (ver docs/configuration.md)
 pip install -r requirements.txt           # idealmente dentro de un .venv
-docker compose up -d minio minio-setup    # desde la raíz del monorepo
+docker compose up -d storage storage-setup    # desde la raíz del monorepo
 uvicorn app.infrastructure.api.main:app --reload
 python seed.py                            # 20 artículos de prueba
 ```
@@ -20,7 +20,7 @@ python seed.py                            # 20 artículos de prueba
 - Documentación interactiva (Swagger): http://localhost:8000/docs
 - Tests: `pytest -v`
 
-Para levantar todo el stack (MinIO + API + web) con Docker, consulta el [README de la raíz](../README.md).
+Para levantar todo el stack (RustFS + API + web) con Docker, consulta el [README de la raíz](../README.md).
 
 ## Documentación
 
@@ -31,7 +31,7 @@ Para levantar todo el stack (MinIO + API + web) con Docker, consulta el [README 
 | [Referencia de la API](docs/api-reference.md) | Endpoints, cuerpos de petición y respuesta, ejemplos |
 | [Base de datos](docs/database.md) | Esquema SQLite, repositorios y mappers, conexiones y transacciones |
 | [Pagos](docs/payments.md) | Puerto `PaymentGateway`, adaptadores Mock y Stripe, flujo de cobro |
-| [Almacenamiento (MinIO)](docs/storage.md) | Subida de imágenes, bucket, endpoint interno y URL pública |
+| [Almacenamiento (RustFS)](docs/storage.md) | Subida de imágenes, bucket, endpoint interno y URL pública |
 | [Seguridad](docs/security.md) | bcrypt, JWT, estado de la autorización, middleware CORS |
 | [Validación y errores](docs/errors-and-validation.md) | Validación con Pydantic y en el dominio, manejadores de excepciones, formatos de error |
 | [Configuración](docs/configuration.md) | `Settings` con pydantic-settings, variables de entorno, valores en Docker |

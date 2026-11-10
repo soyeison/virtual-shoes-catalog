@@ -146,4 +146,4 @@ sqlite3 data/catalogo.db "SELECT id, name, stock, price_amount FROM articles LIM
 docker compose exec api python -c "import sqlite3; c=sqlite3.connect('data/catalogo.db'); print(c.execute('SELECT COUNT(*) FROM articles').fetchone())"
 ```
 
-Para empezar de cero: en local borra `data/catalogo.db`; en Docker ejecuta `docker compose down -v`, que elimina también el volumen de MinIO.
+Para empezar de cero: en local borra `data/catalogo.db`; en Docker ejecuta `docker compose down -v`, que elimina también el volumen de RustFS.

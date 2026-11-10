@@ -21,7 +21,7 @@ Cada repositorio hace `commit()` por su cuenta. Si el checkout falla a mitad (po
 ### 5. El `transaction_id` de la pasarela no se guarda
 La tabla `payments` no tiene una columna para el ID del PaymentIntent de Stripe. Eso dificulta conciliar pagos o hacer reembolsos.
 
-### 6. Imágenes huérfanas en MinIO
+### 6. Imágenes huérfanas en RustFS
 `POST /articles` sube las imágenes antes de crear el artículo. Si la creación falla, las imágenes quedan en el bucket sin ningún artículo asociado.
 
 ### 7. Sin claves foráneas ni migraciones
@@ -60,7 +60,7 @@ Un pedido que no existe responde `400` en lugar de `404`, porque el caso de uso 
 ### 16. Advertencia de Python 3.12 con fechas en SQLite
 `SqliteUserRepository` guarda un `date` directamente y Python 3.12 lo marca como obsoleto. Basta con guardar `birth_date.isoformat()`.
 
-### 17. Credenciales de MinIO fijas en el compose
+### 17. Credenciales de RustFS fijas en el compose
 `admin`/`password123` están escritas en el `docker-compose.yml` y el bucket es de lectura pública. Es válido para desarrollo, pero no para producción.
 
 ### 18. `app/main.py` sin uso

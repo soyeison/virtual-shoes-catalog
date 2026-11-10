@@ -76,7 +76,7 @@ Se lanza `ValueError` cuando:
 - el proveedor de pago no es válido o falta `STRIPE_SECRET_KEY` (`get_payment_gateway`);
 - la fecha de nacimiento no tiene formato `YYYY-MM-DD` (`datetime.strptime`).
 
-Cualquier otra excepción no controlada (por ejemplo `RuntimeError` de MinIO o `sqlite3.IntegrityError`) termina en **`500 Internal Server Error`**, con el traceback en los logs de Uvicorn.
+Cualquier otra excepción no controlada (por ejemplo `RuntimeError` de RustFS o `sqlite3.IntegrityError`) termina en **`500 Internal Server Error`**, con el traceback en los logs de Uvicorn.
 
 ## Resumen de formatos de error
 

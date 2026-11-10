@@ -1,11 +1,11 @@
 # Desarrollo local
 
-Cómo ejecutar la API en tu máquina, con MinIO en Docker. Para levantar todo el stack (MinIO + API + web) en contenedores, consulta el README de la raíz del monorepo.
+Cómo ejecutar la API en tu máquina, con RustFS en Docker. Para levantar todo el stack (RustFS + API + web) en contenedores, consulta el README de la raíz del monorepo.
 
 ## Requisitos
 
 - Python **3.12**
-- Docker con Docker Compose, para MinIO
+- Docker con Docker Compose, para RustFS
 - Opcional: el CLI `sqlite3`, para inspeccionar la base de datos
 
 ## 1. Entorno virtual y dependencias
@@ -26,7 +26,7 @@ Dependencias principales (`requirements.txt`):
 | `python-dotenv` | Lectura del `.env` (la usa pydantic-settings) |
 | `python-multipart` | Formularios y subida de archivos (`POST /articles`) |
 | `bcrypt`, `PyJWT` | Hash de contraseñas y tokens |
-| `boto3` | Cliente S3 para MinIO |
+| `boto3` | Cliente S3 para RustFS |
 | `stripe` | Pasarela de pago |
 | `pytest`, `pytest-cov` | Tests y cobertura |
 
@@ -41,24 +41,24 @@ Completa los valores (ver [configuration.md](configuration.md)). Para desarrollo
 ```dotenv
 DATABASE_PATH=data/catalogo.db
 CORS_ORIGINS=["http://localhost:4321"]
-MINIO_ENDPOINT=http://localhost:9000
-MINIO_PUBLIC_URL=http://localhost:9000
-MINIO_ACCESS_KEY=admin
-MINIO_SECRET_KEY=password123
-MINIO_BUCKET=catalogo-images
+S3_ENDPOINT=http://localhost:9000
+S3_PUBLIC_URL=http://localhost:9000
+S3_ACCESS_KEY=admin
+S3_SECRET_KEY=password123
+S3_BUCKET=catalogo-images
 PAYMENT_GATEWAY_PROVIDER=mock
 STRIPE_SECRET_KEY=
 ```
 
-## 3. Levantar MinIO
+## 3. Levantar RustFS
 
 Desde la **raíz del monorepo**:
 
 ```bash
-docker compose up -d minio minio-setup
+docker compose up -d storage storage-setup
 ```
 
-`minio-setup` crea el bucket y termina; es normal que quede en estado `Exited (0)`. Ver [storage.md](storage.md).
+`storage-setup` crea el bucket y termina; es normal que quede en estado `Exited (0)`. Ver [storage.md](storage.md).
 
 ## 4. Ejecutar la API
 
@@ -110,7 +110,7 @@ docker build -t virtual-catalog-api .
 | `ValidationError ... Field required` al arrancar | Falta una variable en el `.env`. El mensaje dice cuál. |
 | `ValidationError` en `cors_origins` | `CORS_ORIGINS` no es una lista JSON válida. Usa `["http://localhost:4321"]`. |
 | `ModuleNotFoundError: No module named 'bcrypt'` (u otro) | Las dependencias no están instaladas en el Python activo. Activa el `.venv` y ejecuta `pip install -r requirements.txt`. |
-| `500` al crear artículos o en el seed: `Error al subir la imagen a MinIO` | MinIO no está levantado, o el bucket o las credenciales no coinciden. |
-| Las imágenes no cargan en el navegador | `MINIO_PUBLIC_URL` no es accesible desde el navegador, o las URLs guardadas son de otra configuración: vuelve a ejecutar el seed. |
+| `500` al crear artículos o en el seed: `Error al subir la imagen al almacenamiento S3` | RustFS no está levantado, o el bucket o las credenciales no coinciden. |
+| Las imágenes no cargan en el navegador | `S3_PUBLIC_URL` no es accesible desde el navegador, o las URLs guardadas son de otra configuración: vuelve a ejecutar el seed. |
 | Error de CORS en el navegador | El origen del frontend no está en `CORS_ORIGINS`. |
 | `Address already in use` en el puerto 8000 | Ya hay otra instancia de la API corriendo (por ejemplo, el contenedor `api`). Detenla con `docker compose stop api`. |

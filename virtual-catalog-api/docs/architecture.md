@@ -9,7 +9,7 @@ flowchart LR
         REPO[Repositorios SQLite]
         GW[Gateways de pago<br/>Mock / Stripe]
         SEC[bcrypt / JWT]
-        STO[MinIO]
+        STO[RustFS]
         CFG[config.py]
     end
     subgraph Aplicación
@@ -38,7 +38,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | Dominio | `app/domain/` | Reglas de negocio puras: agregados, value objects y excepciones. Sin librerías externas. | Nada |
 | Aplicación | `app/application/` | Orquesta los casos de uso y define los **puertos** (interfaces) que necesita del exterior. | Dominio |
-| Infraestructura | `app/infrastructure/` | Implementa los puertos (**adaptadores**): SQLite, MinIO, Stripe, bcrypt, JWT. Expone la API HTTP. | Aplicación y dominio |
+| Infraestructura | `app/infrastructure/` | Implementa los puertos (**adaptadores**): SQLite, RustFS, Stripe, bcrypt, JWT. Expone la API HTTP. | Aplicación y dominio |
 
 ## Estructura de carpetas
 
@@ -61,7 +61,7 @@ app/
     ├── repositories/      # Sqlite*Repository + mappers/ (dominio <-> fila SQL)
     ├── gateways/          # MockPaymentGateway, StripePaymentGateway
     ├── security/          # BcryptPasswordHasher, JwtTokenGenerator
-    └── storage/           # MinioFileStorage
+    └── storage/           # S3FileStorage
 ```
 
 > `app/main.py` es un archivo de ejemplo ("Hello, World!") que no se usa. El punto de entrada real es `app/infrastructure/api/main.py`.
@@ -78,7 +78,7 @@ Los casos de uso solo conocen interfaces (`abc.ABC`). La infraestructura aporta 
 | `OrderRepository` | `repositories/sqlite_order_repository.py` |
 | `PaymentRepository` | `repositories/sqlite_payment_repository.py` |
 | `PaymentGateway` | `gateways/mock_payment_gateway.py`, `gateways/stripe_payment_gateway.py` |
-| `FileStoragePort` | `storage/minio_file_storage.py` |
+| `FileStoragePort` | `storage/s3_file_storage.py` |
 | `PasswordHasher` | `security/bcrypt_password_hasher.py` |
 | `TokenGenerator` | `security/jwt_generator.py` |
 

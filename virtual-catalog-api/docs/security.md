@@ -73,5 +73,5 @@ No hay middlewares de autenticación, logging, rate limiting ni compresión. Los
 
 - **Inyección SQL**: todas las consultas usan parámetros `?` (ver [database.md](database.md)).
 - **Secretos**: `.env` está en `.gitignore` y `.dockerignore`. `Settings` usa `hide_input_in_errors=True`, para que un error de configuración no muestre valores como `STRIPE_SECRET_KEY`.
-- **MinIO**: las credenciales `admin`/`password123` están fijas en el `docker-compose.yml` y el bucket es de lectura pública. Es aceptable para desarrollo, pero no para producción.
+- **RustFS**: las credenciales `admin`/`password123` están fijas en el `docker-compose.yml` y el bucket es de lectura pública. Es aceptable para desarrollo, pero no para producción.
 - **Montos de pago**: el monto se calcula en el servidor a partir del pedido; el cliente no puede enviarlo.

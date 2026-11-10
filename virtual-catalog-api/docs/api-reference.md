@@ -100,7 +100,7 @@ curl -X POST http://localhost:8000/api/v1/articles \
   -F images=@static/zapato1.jpg.jpeg
 ```
 
-Las imágenes se suben a MinIO **antes** de crear el artículo; la respuesta incluye sus URLs públicas (ver [storage.md](storage.md)).
+Las imágenes se suben a RustFS **antes** de crear el artículo; la respuesta incluye sus URLs públicas (ver [storage.md](storage.md)).
 
 #### `GET /articles`
 
