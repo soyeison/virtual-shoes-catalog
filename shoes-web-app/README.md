@@ -24,7 +24,7 @@ npm install
 npm run dev                                                # http://localhost:4321
 ```
 
-Para el stack completo en Docker (MinIO + API + web), usa el `docker-compose.yml` de la raíz del monorepo: `docker compose up --build`.
+Para el stack completo en Docker (RustFS + API + web), usa el `docker-compose.yml` de la raíz del monorepo: `docker compose up --build`.
 
 ## Documentación
 

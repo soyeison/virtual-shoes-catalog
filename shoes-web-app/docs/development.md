@@ -143,7 +143,7 @@ En Linux, `host.docker.internal` puede requerir `--add-host=host.docker.internal
 | El contenedor `web` llama a `localhost:8000` desde SSR | Falta `INTERNAL_API_URL` | Defínela (en Compose: `http://api:8000/api/v1`) |
 | El login muestra "HTTP Error: 400" | Credenciales incorrectas; el front no lee el mensaje de la API | Ver [known-issues.md](known-issues.md) |
 | El registro falla con "HTTP Error: 400" o "HTTP Error: 422" | Validación del backend: contraseña < 6, menor de edad, email repetido o **código postal vacío / no numérico / < 5 dígitos** (la UI lo marca como opcional) | Completa un código postal válido, p. ej. `050010` |
-| Imágenes rotas en tarjetas o checkout | El artículo no tiene imágenes y `/placeholder-shoe.png` no existe en `public/`, o MinIO no es accesible en `localhost:9000` | Ver [known-issues.md](known-issues.md) |
+| Imágenes rotas en tarjetas o checkout | El artículo no tiene imágenes y `/placeholder-shoe.png` no existe en `public/`, o RustFS no es accesible en `localhost:9000` | Ver [known-issues.md](known-issues.md) |
 | El pago siempre falla | La API usa `PAYMENT_GATEWAY_PROVIDER=stripe` y el front envía `test_token_123` | Usa `mock` en la API para desarrollo |
 | "Salir" aparece, pero el carrito no carga y "Agregar" lleva al login | El token guardado no se pudo decodificar (`userId` nulo) | Borra `auth-storage` de `localStorage` y vuelve a iniciar sesión |
 | `npm run build` falla con `--outDir` fuera del proyecto | Los chunks no resuelven `node_modules` fuera del árbol del proyecto | Compila en el `dist/` por defecto |

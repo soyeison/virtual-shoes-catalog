@@ -44,4 +44,4 @@ Las fuentes se piden a `fonts.googleapis.com` en cada carga; sin conexión a int
 
 `public/` contiene `banner-bg.png` (fondo del hero de `/`), `favicon.ico` y `favicon.svg`. El código también referencia archivos que **no existen** en `public/`: `/placeholder-shoe.png` y `/icons/shoe-icon.png`, `/icons/bolt-icon.png`, `/icons/run-icon.png` (ver [known-issues.md](known-issues.md)).
 
-Las imágenes de los productos no son del front: son URLs públicas de MinIO que devuelve la API (`http://localhost:9000/catalogo-images/...`). Se muestran con `<img>` normales; no se usa el componente `<Image>` de Astro ni optimización de imágenes. `src/shared/ui/ArticleImage.astro` envuelve un `<img>` con `loading="lazy"`, pero ninguna página lo usa.
+Las imágenes de los productos no son del front: son URLs públicas de RustFS que devuelve la API (`http://localhost:9000/catalogo-images/...`). Se muestran con `<img>` normales; no se usa el componente `<Image>` de Astro ni optimización de imágenes. `src/shared/ui/ArticleImage.astro` envuelve un `<img>` con `loading="lazy"`, pero ninguna página lo usa.
