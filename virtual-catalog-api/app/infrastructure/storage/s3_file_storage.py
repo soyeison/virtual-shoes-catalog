@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 from app.application.ports.file_storage import FileStoragePort
 
 
-class MinioFileStorage(FileStoragePort):
+class S3FileStorage(FileStoragePort):
     def __init__(
         self,
         endpoint_url: str,
@@ -41,4 +41,4 @@ class MinioFileStorage(FileStoragePort):
 
         except ClientError as e:
             # Aquí podrías lanzar una excepción personalizada de tu dominio de infraestructura
-            raise RuntimeError(f"Error al subir la imagen a MinIO: {str(e)}")
+            raise RuntimeError(f"Error al subir la imagen al almacenamiento S3: {str(e)}")

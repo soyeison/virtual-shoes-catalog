@@ -29,12 +29,12 @@ class Settings(BaseSettings):
     # CORS (lista JSON, ej: ["http://localhost:4321"])
     cors_origins: List[str]
 
-    # MinIO
-    minio_endpoint: str  # URL que usa la API para subir archivos
-    minio_public_url: str  # URL base con la que el navegador descarga las imágenes
-    minio_access_key: str
-    minio_secret_key: str
-    minio_bucket: str
+    # Almacenamiento de imágenes (compatible con S3, ej. RustFS)
+    s3_endpoint: str  # URL que usa la API para subir archivos
+    s3_public_url: str  # URL base con la que el navegador descarga las imágenes
+    s3_access_key: str
+    s3_secret_key: str
+    s3_bucket: str
 
     # Pagos
     payment_gateway_provider: str

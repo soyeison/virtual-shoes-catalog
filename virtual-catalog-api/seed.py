@@ -2,7 +2,7 @@ import sqlite3
 import urllib.request
 import random
 from app.infrastructure.config import settings
-from app.infrastructure.storage.minio_file_storage import MinioFileStorage
+from app.infrastructure.storage.s3_file_storage import S3FileStorage
 from app.infrastructure.repositories.sqlite_article_repository import (
     SqliteArticleRepository,
 )
@@ -22,12 +22,12 @@ def run_seeder():
     db_conn = sqlite3.connect(settings.database_path)
     repo = SqliteArticleRepository(db_conn)
 
-    storage = MinioFileStorage(
-        endpoint_url=settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        bucket_name=settings.minio_bucket,
-        public_url=settings.minio_public_url,
+    storage = S3FileStorage(
+        endpoint_url=settings.s3_endpoint,
+        access_key=settings.s3_access_key,
+        secret_key=settings.s3_secret_key,
+        bucket_name=settings.s3_bucket,
+        public_url=settings.s3_public_url,
     )
 
     use_case = CreateArticleUseCase(article_repository=repo)
@@ -101,7 +101,7 @@ def run_seeder():
             image_urls=image_urls,
         )
 
-    print("Base de datos y MinIO poblados con éxito")
+    print("Base de datos y almacenamiento poblados con éxito")
 
 
 if __name__ == "__main__":

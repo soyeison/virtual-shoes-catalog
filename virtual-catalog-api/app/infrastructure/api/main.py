@@ -39,7 +39,7 @@ from app.infrastructure.repositories.sqlite_article_repository import (
 )
 from app.infrastructure.security.bcrypt_password_hasher import BcryptPasswordHasher
 from app.infrastructure.security.jwt_generator import JwtTokenGenerator
-from app.infrastructure.storage.minio_file_storage import MinioFileStorage
+from app.infrastructure.storage.s3_file_storage import S3FileStorage
 from app.infrastructure.repositories.sqlite_cart_repository import SqliteCartRepository
 from app.infrastructure.repositories.sqlite_order_repository import (
     SqliteOrderRepository,
@@ -197,13 +197,13 @@ def get_search_articles_use_case(
     return SearchArticleUseCase(article_repository=repo)
 
 
-def get_file_storage() -> MinioFileStorage:
-    return MinioFileStorage(
-        endpoint_url=settings.minio_endpoint,
-        access_key=settings.minio_access_key,
-        secret_key=settings.minio_secret_key,
-        bucket_name=settings.minio_bucket,
-        public_url=settings.minio_public_url,
+def get_file_storage() -> S3FileStorage:
+    return S3FileStorage(
+        endpoint_url=settings.s3_endpoint,
+        access_key=settings.s3_access_key,
+        secret_key=settings.s3_secret_key,
+        bucket_name=settings.s3_bucket,
+        public_url=settings.s3_public_url,
     )
 
 
@@ -373,7 +373,7 @@ async def create_article(
     price_currency: str = Form(default="COP", min_length=3, max_length=3),
     images: List[UploadFile] = File(default=[]),
     use_case: CreateArticleUseCase = Depends(get_create_article_use_case),
-    storage: MinioFileStorage = Depends(get_file_storage),
+    storage: S3FileStorage = Depends(get_file_storage),
 ):
     if len(images) > 5:
         raise HTTPException(
