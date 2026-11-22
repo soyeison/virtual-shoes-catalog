@@ -1,17 +1,26 @@
 # Mismo nombre de proyecto que usaba el compose anterior, para reutilizar sus contenedores y volúmenes
 name: project-virtual-catalog
 
+# Los valores vienen del .env de la raíz (cp .env.example .env), que docker compose lee solo:
+#   ${VAR:?...}  secreto obligatorio: el compose no arranca si falta
+#   ${VAR:-x}    configuración con valor por defecto
+
+# Configuración S3 compartida por storage-setup y api (se define una sola vez)
+x-s3-config: &s3-config
+  S3_BUCKET: ${S3_BUCKET:-catalogo-images}
+  S3_REGION: ${S3_REGION:-us-east-1}
+
 services:
   # Almacenamiento de imágenes compatible con S3
   storage:
     image: rustfs/rustfs:1.0.4
     container_name: catalogo_storage
     ports:
-      - "9000:9000" # Puerto de la API (S3)
-      - "9001:9001" # Puerto de la Consola Web (Interfaz gráfica)
+      - "${STORAGE_PORT:-9000}:9000" # Puerto de la API (S3)
+      - "${STORAGE_CONSOLE_PORT:-9001}:9001" # Puerto de la Consola Web (Interfaz gráfica)
     environment:
-      RUSTFS_ACCESS_KEY: admin
-      RUSTFS_SECRET_KEY: password123
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?Define STORAGE_ACCESS_KEY en .env}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:?Define STORAGE_SECRET_KEY en .env}
       RUSTFS_ADDRESS: ":9000"
       RUSTFS_CONSOLE_ENABLE: "true"
       RUSTFS_CONSOLE_ADDRESS: ":9001"
@@ -32,30 +41,39 @@ services:
       storage:
         condition: service_healthy
     environment:
-      AWS_ACCESS_KEY_ID: admin
-      AWS_SECRET_ACCESS_KEY: password123
-      AWS_DEFAULT_REGION: us-east-1
+      <<: *s3-config
+      AWS_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY:?Define STORAGE_ACCESS_KEY en .env}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY:?Define STORAGE_SECRET_KEY en .env}
     entrypoint: /bin/sh
+    # $$ evita que docker compose interpole: estas variables las expande el shell del contenedor
     command:
       - -ec
       - |
-        aws --endpoint-url http://storage:9000 s3api create-bucket --bucket catalogo-images
-        aws --endpoint-url http://storage:9000 s3api put-bucket-policy --bucket catalogo-images --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::catalogo-images/*"]}]}'
+        export AWS_DEFAULT_REGION="$$S3_REGION"
+        aws --endpoint-url http://storage:9000 s3api create-bucket --bucket "$$S3_BUCKET"
+        policy=$$(printf '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::%s/*"]}]}' "$$S3_BUCKET")
+        aws --endpoint-url http://storage:9000 s3api put-bucket-policy --bucket "$$S3_BUCKET" --policy "$$policy"
 
   api:
     build: ./virtual-catalog-api
     container_name: catalogo_api
-    # Aporta todas las variables validadas por Settings (ver virtual-catalog-api/.env.example)
+    # Aporta DATABASE_PATH y la configuración de pagos (ver virtual-catalog-api/.env.example)
     env_file: ./virtual-catalog-api/.env
-    # Sobrescribe solo los valores que cambian dentro de la red de Docker
+    # Lo que depende de Docker o se comparte con otros servicios se define aquí y tiene prioridad
     environment:
-      CORS_ORIGINS: '["http://localhost:4321"]'
+      <<: *s3-config
+      CORS_ORIGINS: '["http://localhost:${WEB_PORT:-4321}"]'
       S3_ENDPOINT: http://storage:9000 # La API llega al almacenamiento por la red interna
-      S3_PUBLIC_URL: http://localhost:9000 # El navegador descarga las imágenes por el host
+      S3_PUBLIC_URL: http://localhost:${STORAGE_PORT:-9000} # El navegador descarga las imágenes por el host
+      S3_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?Define STORAGE_ACCESS_KEY en .env}
+      S3_SECRET_KEY: ${STORAGE_SECRET_KEY:?Define STORAGE_SECRET_KEY en .env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Define JWT_SECRET_KEY en .env}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-60}
     volumes:
       - api_data:/app/data
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       storage-setup:
         condition: service_completed_successfully
@@ -64,12 +82,12 @@ services:
     build:
       context: ./shoes-web-app
       args:
-        PUBLIC_API_URL: http://localhost:8000/api/v1 # Usada por el navegador
+        PUBLIC_API_URL: http://localhost:${API_PORT:-8000}/api/v1 # Usada por el navegador
     container_name: catalogo_web
     environment:
       INTERNAL_API_URL: http://api:8000/api/v1 # Usada por el servidor (SSR)
     ports:
-      - "4321:4321"
+      - "${WEB_PORT:-4321}:4321"
     depends_on:
       - api
 
@@ -78,11 +96,12 @@ services:
     container_name: jenkins-ci
     restart: unless-stopped
     ports:
-      - "8081:8080"
-      - "50000:50000"
+      - "${JENKINS_PORT:-8081}:8080"
+      - "${JENKINS_AGENT_PORT:-50000}:50000"
     environment:
       JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER:-admin}
-      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-cambiar-esta-clave}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:?Define JENKINS_ADMIN_PASSWORD en .env}
+      JENKINS_PUBLIC_URL: http://localhost:${JENKINS_PORT:-8081}/ # La lee jenkins.yaml
     # Portable (Windows/Mac/Ubuntu/Fedora): root evita depender del GID del grupo docker.
     # Solo aceptable en laboratorio local.
     user: root
