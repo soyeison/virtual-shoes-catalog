@@ -46,6 +46,8 @@ Los listados agregan `results` (en `GET /articles`) o `pagination` (en la búsqu
 | POST | `/checkout/{user_id}` | Convierte el carrito en un pedido | 201 |
 | GET | `/orders/{order_id}` | Resumen de un pedido | 200 |
 | POST | `/process-payment` | Cobra un pedido | 200 |
+| GET | `/health` | Liveness: el proceso responde | 200 |
+| GET | `/health/ready` | Readiness: base de datos y almacenamiento listos | 200 / 503 |
 
 ### Autenticación
 
@@ -231,3 +233,26 @@ Mismo formato de `data` que el checkout. Responde `400` si el pedido no existe.
 ```
 
 Si el cobro se rechaza responde `400` con `{"detail": "Payment failed: <motivo>"}`. Qué valor enviar en `payment_token` depende de la pasarela configurada (ver [payments.md](payments.md)).
+
+### Salud
+
+#### `GET /health`
+
+Liveness: solo indica que el proceso responde. No revisa dependencias, para que una caída del almacenamiento no provoque reinicios de la API si se usa como healthcheck de Docker o Kubernetes.
+
+```json
+{ "status": "success", "data": { "api": "ok" } }
+```
+
+#### `GET /health/ready`
+
+Readiness: revisa las dependencias y responde `200` si todas están bien o `503` si alguna falla.
+
+- `database`: crea la tabla `articles` si falta y lee de ella. Conectar no basta, porque `sqlite3.connect` crea el archivo si no existe.
+- `storage`: `head_bucket` sobre `S3_BUCKET`, que valida conexión, credenciales y que el bucket exista. Usa timeouts de 2 s y un solo intento, para responder rápido aunque RustFS no conteste.
+
+```json
+{ "status": "error", "data": { "database": "ok", "storage": "error" } }
+```
+
+La respuesta nunca incluye el detalle del error; el motivo queda en los logs de la API (`Health: el almacenamiento no responde: ...`). Es la ruta que usa la prueba de humo del `Jenkinsfile`.

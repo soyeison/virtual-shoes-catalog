@@ -88,6 +88,8 @@ def populated_repo():
 
 Comprueban que guardar y leer conserve los datos (mappers, JSON, `Decimal`, fechas) y el comportamiento de la búsqueda: filtro por nombre, rango de precio, orden y paginación.
 
+`test_health.py` prueba las comprobaciones de `/health/ready` (`app/infrastructure/health.py`): la base de datos con SQLite en memoria y el almacenamiento con un cliente S3 falso que simula un bucket inexistente o un endpoint inalcanzable. También verifica que el cliente S3 del health tenga timeouts cortos y un solo intento.
+
 ## Qué no está cubierto
 
 | Módulo | Cobertura |
