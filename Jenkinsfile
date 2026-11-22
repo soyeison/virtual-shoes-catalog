@@ -42,6 +42,46 @@ pipeline {
       }
     }
 
+    stage('Escaneo de seguridad (Trivy)') {
+      environment {
+        // Fijada por digest: en marzo de 2026 se publicaron imágenes maliciosas de Trivy en
+        // Docker Hub (incluida "latest"). Una etiqueta se puede reapuntar; un digest no.
+        TRIVY_IMAGE = 'aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb'
+      }
+      steps {
+        // Por cada imagen: un reporte con HIGH y CRITICAL que no bloquea, y una segunda pasada
+        // que falla solo si hay CRITICAL. Se escanean las dos imágenes antes de fallar.
+        // label=disable: en Fedora/RHEL, SELinux impide usar el socket de Docker dentro del contenedor.
+        // El volumen trivy-cache evita descargar la base de datos en cada build y acelera la 2.ª pasada.
+        // Para aceptar a conciencia una CRITICAL sin arreglo, agrega su ID a un .trivyignore.
+        sh '''
+          trivy() {
+            docker run --rm \
+              --security-opt label=disable \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v trivy-cache:/root/.cache/ \
+              "$TRIVY_IMAGE" image "$@"
+          }
+
+          criticas=""
+          for img in backend-ci frontend-ci; do
+            echo "===== Reporte de $img (HIGH y CRITICAL, no bloquea) ====="
+            trivy --severity HIGH,CRITICAL --exit-code 0 $img:${BUILD_NUMBER}
+
+            if ! trivy --quiet --severity CRITICAL --exit-code 1 --format table --output /dev/null $img:${BUILD_NUMBER}; then
+              criticas="$criticas $img"
+            fi
+          done
+
+          if [ -n "$criticas" ]; then
+            echo "Escaneo fallido: vulnerabilidades CRITICAL en:$criticas (ver el reporte de arriba)"
+            exit 1
+          fi
+          echo "Escaneo superado: sin vulnerabilidades CRITICAL"
+        '''
+      }
+    }
+
     stage('Prueba de humo') {
       // Configuración de la prueba (no son secretos; los secretos se generan en cada build)
       environment {
