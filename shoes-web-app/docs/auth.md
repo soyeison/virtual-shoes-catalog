@@ -26,7 +26,7 @@ sequenceDiagram
 - `AuthGateway.register` devuelve `response.data.user_id`, pero el store lo descarta: después del registro hace un login con las mismas credenciales y toma el `userId` del token.
 - `parseJwt` decodifica la parte central del JWT (base64url → JSON) **sin verificar la firma**. Si falla devuelve `null`, y en ese caso `userId` queda `null` aunque `isAuthenticated` sea `true`.
 
-El backend firma el token con `HS256` e incluye `sub` (ID del usuario), `iat` y `exp` (60 minutos).
+El backend firma el token con `JWT_ALGORITHM` (por defecto `HS256`) e incluye `sub` (ID del usuario), `iat` y `exp` (`JWT_EXPIRATION_MINUTES`, por defecto 60 minutos). Ver la [configuración del backend](../../virtual-catalog-api/docs/configuration.md#variables).
 
 ## Enviar el token
 

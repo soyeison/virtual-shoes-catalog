@@ -27,27 +27,25 @@ El detalle de este diagrama (URLs internas y públicas, SSR vs. navegador) está
 
 Requisitos: Docker con Docker Compose v2 (`docker compose`). Todos los comandos se ejecutan desde la **raíz del monorepo**.
 
-1. **Configurar la API.** El `.env` es obligatorio: sin él el compose no arranca.
+1. **Configurar los secretos.** Hay dos `.env` y los dos son obligatorios: sin ellos el compose no arranca. Ninguno se sube a git.
 
    ```bash
+   cp .env.example .env
    cp virtual-catalog-api/.env.example virtual-catalog-api/.env
    ```
 
-   Completa los valores. Para usar el compose tal como está:
+   - **`.env` de la raíz**: completa los cuatro secretos (`STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `JWT_SECRET_KEY` y `JENKINS_ADMIN_PASSWORD`), por ejemplo con `openssl rand -hex 20`. El compose los reparte a cada servicio; si falta uno, no arranca y dice cuál. Los puertos y el bucket ya traen valores por defecto.
+   - **`virtual-catalog-api/.env`**: dentro de Docker solo se usan `DATABASE_PATH`, `PAYMENT_GATEWAY_PROVIDER` y `STRIPE_SECRET_KEY`; el resto lo define el compose. Para usar el compose tal como está:
 
-   ```dotenv
-   DATABASE_PATH=data/catalogo.db
-   CORS_ORIGINS=["http://localhost:4321"]
-   S3_ENDPOINT=http://localhost:9000
-   S3_PUBLIC_URL=http://localhost:9000
-   S3_ACCESS_KEY=admin
-   S3_SECRET_KEY=password123
-   S3_BUCKET=catalogo-images
-   PAYMENT_GATEWAY_PROVIDER=mock
-   STRIPE_SECRET_KEY=
-   ```
+     ```dotenv
+     DATABASE_PATH=data/catalogo.db
+     PAYMENT_GATEWAY_PROVIDER=mock
+     STRIPE_SECRET_KEY=
+     ```
 
-   `CORS_ORIGINS`, `S3_ENDPOINT` y `S3_PUBLIC_URL` se sobrescriben dentro de Docker; los valores de arriba sirven además para ejecutar la API fuera de Docker. Detalle en [docs/docker.md](docs/docker.md#variables-de-entorno).
+     Para ejecutar la API fuera de Docker hacen falta todas sus variables (ver [development.md](virtual-catalog-api/docs/development.md#2-variables-de-entorno)).
+
+   Detalle en [docs/docker.md](docs/docker.md#variables-de-entorno).
 
 2. **Construir y levantar** los servicios:
 
@@ -73,7 +71,7 @@ Requisitos: Docker con Docker Compose v2 (`docker compose`). Todos los comandos 
    | API | http://localhost:8000/api/v1 | Prefijo de todos los endpoints |
    | Swagger de la API | http://localhost:8000/docs | Probar endpoints desde el navegador |
    | RustFS (API S3) | http://localhost:9000 | De aquí descarga el navegador las imágenes |
-   | Consola de RustFS | http://localhost:9001/rustfs/console/ | Usuario `admin`, contraseña `password123` |
+   | Consola de RustFS | http://localhost:9001/rustfs/console/ | Usuario y contraseña: `STORAGE_ACCESS_KEY` y `STORAGE_SECRET_KEY` del `.env` |
 
 Para detener: `docker compose down` (conserva los datos). `docker compose down -v` borra también la base de datos y las imágenes. Más comandos en [docs/docker.md](docs/docker.md#comandos-habituales).
 
@@ -118,4 +116,4 @@ Todos los perfiles empiezan por este README y por [docs/architecture.md](docs/ar
 2. [API: configuration.md](virtual-catalog-api/docs/configuration.md) y [Web: configuration.md](shoes-web-app/docs/configuration.md): todas las variables de entorno.
 3. [API: storage.md](virtual-catalog-api/docs/storage.md): RustFS y URLs interna/pública.
 4. [API: testing.md](virtual-catalog-api/docs/testing.md): cómo ejecutar los tests (también dentro del contenedor).
-5. [API: known-issues.md](virtual-catalog-api/docs/known-issues.md): credenciales fijas y otros puntos a resolver antes de producción.
+5. [API: known-issues.md](virtual-catalog-api/docs/known-issues.md): JWT sin validar, bucket público y otros puntos a resolver antes de producción.

@@ -28,11 +28,12 @@ El `docker-compose.yml` de la raíz del monorepo define dos servicios:
 | Servicio | Imagen | Función |
 | --- | --- | --- |
 | `storage` | `rustfs/rustfs:1.0.4` | Servidor. Puerto `9000` (API S3) y `9001` (consola web). Datos en el volumen `storage_data`. Tiene `healthcheck` sobre `/health`. |
-| `storage-setup` | `amazon/aws-cli:2.31.0` | Tarea de un solo uso: espera a que `storage` esté sano, crea el bucket `catalogo-images`, le aplica una política de **lectura pública de objetos** y termina. |
+| `storage-setup` | `amazon/aws-cli:2.31.0` | Tarea de un solo uso: espera a que `storage` esté sano, crea el bucket `S3_BUCKET` (por defecto `catalogo-images`), le aplica una política de **lectura pública de objetos** y termina. |
 
 La API (`api`) espera a que `storage-setup` termine bien antes de arrancar (`condition: service_completed_successfully`). Si la creación del bucket o la política fallan, `storage-setup` termina con error y la API no arranca, así el problema se ve enseguida.
 
-- Consola web: http://localhost:9001/rustfs/console/, usuario `admin` y contraseña `password123` (definidos en el compose con `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`).
+- Consola web: http://localhost:9001/rustfs/console/, con usuario `STORAGE_ACCESS_KEY` y contraseña `STORAGE_SECRET_KEY` del `.env` de la raíz (el compose se las pasa a RustFS como `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`).
+- Cambiar esas credenciales no afecta a los datos: RustFS arranca con las nuevas sobre el mismo volumen y el bucket sigue ahí.
 - Crear el bucket otra vez no falla, así que `storage-setup` puede ejecutarse en cada `docker compose up`.
 
 ### Política del bucket
@@ -80,13 +81,14 @@ Dentro de Docker, `localhost` es el propio contenedor de la API; por eso necesit
 
 ## Configuración
 
-| Variable | Valor con el compose actual |
+| Variable de la API | Valor con el compose actual |
 | --- | --- |
-| `S3_ACCESS_KEY` | `admin` |
-| `S3_SECRET_KEY` | `password123` |
-| `S3_BUCKET` | `catalogo-images` |
+| `S3_ACCESS_KEY` | `STORAGE_ACCESS_KEY` del `.env` de la raíz |
+| `S3_SECRET_KEY` | `STORAGE_SECRET_KEY` del `.env` de la raíz |
+| `S3_BUCKET` | `S3_BUCKET` del `.env` de la raíz (por defecto `catalogo-images`) |
+| `S3_REGION` | `S3_REGION` del `.env` de la raíz (por defecto `us-east-1`) |
 
-Deben coincidir con `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY` y el bucket que crea `storage-setup` en el `docker-compose.yml`. Ver [configuration.md](configuration.md).
+En Docker el compose las toma de las mismas variables que usa `storage`, así que siempre coinciden. Si ejecutas la API fuera de Docker, copia esos valores a `virtual-catalog-api/.env`. Ver [configuration.md](configuration.md).
 
 ## Usos
 

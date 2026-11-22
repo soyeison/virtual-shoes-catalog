@@ -40,14 +40,12 @@ sequenceDiagram
 - Los endpoints de carrito y checkout reciben el `user_id` en la ruta y confían en él: cualquiera que conozca un `user_id` puede leer o modificar ese carrito.
 - `POST /articles` es público: cualquiera puede crear artículos.
 - `GET /orders/{order_id}` y `POST /process-payment` no verifican que el pedido pertenezca a quien hace la petición.
-- El secreto del JWT está fijo en el código (`"supersecretkey"`, en `get_token_generator()` de `main.py`) y no en `Settings`.
 
 El frontend sí envía el token en `Authorization`, así que la API ya puede empezar a validarlo. Lo que faltaría:
 
-1. Mover el secreto y la expiración a `Settings` (`JWT_SECRET_KEY`, `JWT_EXPIRATION_MINUTES`) y a `.env.example`.
-2. Agregar un método `decode`/`verify` al puerto `TokenGenerator`.
-3. Crear una dependencia que lea el header con `fastapi.security.HTTPBearer`, decodifique el token y devuelva el `user_id` (o `401`).
-4. Usarla en los endpoints de carrito, checkout, pedidos y pagos, tomando el usuario del token en lugar de la ruta.
+1. Agregar un método `decode`/`verify` al puerto `TokenGenerator`.
+2. Crear una dependencia que lea el header con `fastapi.security.HTTPBearer`, decodifique el token y devuelva el `user_id` (o `401`).
+3. Usarla en los endpoints de carrito, checkout, pedidos y pagos, tomando el usuario del token en lugar de la ruta.
 
 ## Middlewares
 
@@ -73,5 +71,6 @@ No hay middlewares de autenticación, logging, rate limiting ni compresión. Los
 
 - **Inyección SQL**: todas las consultas usan parámetros `?` (ver [database.md](database.md)).
 - **Secretos**: `.env` está en `.gitignore` y `.dockerignore`. `Settings` usa `hide_input_in_errors=True`, para que un error de configuración no muestre valores como `STRIPE_SECRET_KEY`.
-- **RustFS**: las credenciales `admin`/`password123` están fijas en el `docker-compose.yml` y el bucket es de lectura pública. Es aceptable para desarrollo, pero no para producción.
+- **JWT**: el secreto, el algoritmo y la expiración vienen de `Settings` (`JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRATION_MINUTES`); ninguno está en el código.
+- **RustFS**: las credenciales vienen del `.env` de la raíz, no del `docker-compose.yml`. El bucket es de lectura pública, lo que es aceptable para desarrollo, pero no para producción.
 - **Montos de pago**: el monto se calcula en el servidor a partir del pedido; el cliente no puede enviarlo.
