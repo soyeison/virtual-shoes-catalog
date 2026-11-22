@@ -40,6 +40,11 @@ from app.infrastructure.repositories.sqlite_article_repository import (
 from app.infrastructure.security.bcrypt_password_hasher import BcryptPasswordHasher
 from app.infrastructure.security.jwt_generator import JwtTokenGenerator
 from app.infrastructure.storage.s3_file_storage import S3FileStorage
+from app.infrastructure.health import (
+    build_storage_health_client,
+    check_database,
+    check_storage,
+)
 from app.infrastructure.repositories.sqlite_cart_repository import SqliteCartRepository
 from app.infrastructure.repositories.sqlite_order_repository import (
     SqliteOrderRepository,
@@ -204,6 +209,14 @@ def get_file_storage() -> S3FileStorage:
         secret_key=settings.s3_secret_key,
         bucket_name=settings.s3_bucket,
         public_url=settings.s3_public_url,
+    )
+
+
+def get_storage_health_client():
+    return build_storage_health_client(
+        endpoint_url=settings.s3_endpoint,
+        access_key=settings.s3_access_key,
+        secret_key=settings.s3_secret_key,
     )
 
 
@@ -426,6 +439,34 @@ async def create_article(
             "image_urls": [img.url for img in new_article.get_image_urls()],
         },
     }
+
+
+@app.get("/api/v1/health", status_code=status.HTTP_200_OK)
+async def health():
+    # Liveness: solo indica que el proceso responde; no revisa dependencias para que
+    # una caída del almacenamiento no provoque reinicios de la API
+    return {"status": "success", "data": {"api": "ok"}}
+
+
+@app.get("/api/v1/health/ready")
+def health_ready(
+    db: sqlite3.Connection = Depends(get_db_connection),
+    s3_client=Depends(get_storage_health_client),
+):
+    # Readiness: revisa las dependencias. Es síncrona porque boto3 bloquea y así
+    # FastAPI la ejecuta en un hilo aparte. Solo expone "ok"/"error", nunca el detalle.
+    checks = {
+        "database": "ok" if check_database(db) else "error",
+        "storage": "ok" if check_storage(s3_client, settings.s3_bucket) else "error",
+    }
+
+    if all(result == "ok" for result in checks.values()):
+        return {"status": "success", "data": checks}
+
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"status": "error", "data": checks},
+    )
 
 
 @app.get("/api/v1/articles", status_code=status.HTTP_200_OK)
