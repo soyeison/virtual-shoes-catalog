@@ -27,6 +27,7 @@ def run_seeder():
         access_key=settings.s3_access_key,
         secret_key=settings.s3_secret_key,
         bucket_name=settings.s3_bucket,
+        region_name=settings.s3_region,
         public_url=settings.s3_public_url,
     )
 

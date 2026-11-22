@@ -55,9 +55,13 @@ def test_check_storage_fails_when_storage_is_unreachable():
 
 def test_storage_health_client_fails_fast():
     client = build_storage_health_client(
-        endpoint_url="http://storage:9000", access_key="key", secret_key="secret"
+        endpoint_url="http://storage:9000",
+        access_key="key",
+        secret_key="secret",
+        region_name="eu-west-1",
     )
 
+    assert client.meta.region_name == "eu-west-1"
     assert client.meta.config.connect_timeout == 2
     assert client.meta.config.read_timeout == 2
     assert client.meta.config.retries["total_max_attempts"] == 1

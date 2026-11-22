@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     s3_access_key: str
     s3_secret_key: str
     s3_bucket: str
+    s3_region: str  # boto3 la exige; RustFS acepta cualquiera (ej. us-east-1)
+
+    # Firma de los JWT
+    jwt_secret_key: str
+    jwt_algorithm: str
+    jwt_expiration_minutes: int
 
     # Pagos
     payment_gateway_provider: str
