@@ -7,7 +7,13 @@ pipeline {
 
     stage('Pruebas backend') {
       // Equivalente al job api-tests de .github/workflows/ci.yml (Python 3.12, pip, pytest + cobertura)
-      agent { docker { image 'python:3.12-slim' reuseNode true } }
+      // Un parámetro por línea: en una sola, Groovy lo lee como image(...).reuseNode(...)
+      agent {
+        docker {
+          image 'python:3.12-slim'
+          reuseNode true
+        }
+      }
       environment {
         // Caché de pip entre builds, como "cache: pip" en GitHub Actions.
         // Queda fuera de virtual-catalog-api/, así que no entra en el contexto de la imagen.

@@ -4,3 +4,4 @@ docker-workflow
 junit
 configuration-as-code
 pipeline-graph-view
+timestamper
