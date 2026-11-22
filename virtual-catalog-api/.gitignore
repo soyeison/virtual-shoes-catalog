@@ -197,3 +197,5 @@ pyrightconfig.json
 # SQLite database file
 catalog.db
 data/
+# Reporte JUnit de pytest (Jenkins)
+test-results/
