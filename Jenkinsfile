@@ -2,7 +2,6 @@
 // Flujo: análisis estático -> pruebas (contenedor efímero) -> imágenes -> escaneo Trivy -> prueba de humo.
 pipeline {
   agent any
-  options { timestamps() }
   stages {
 
     stage('Pruebas backend') {
