@@ -73,6 +73,27 @@ services:
     depends_on:
       - api
 
+  jenkins:
+    build: ./jenkins
+    container_name: jenkins-ci
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    environment:
+      JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-cambiar-esta-clave}
+    # Portable (Windows/Mac/Ubuntu/Fedora): root evita depender del GID del grupo docker.
+    # Solo aceptable en laboratorio local.
+    user: root
+    # Fedora/RHEL: SELinux bloquea el montaje del socket; en otros sistemas se ignora.
+    security_opt:
+      - label=disable
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock   # solo aceptable en laboratorio local
+
 volumes:
   storage_data:
   api_data:
+  jenkins_home:
