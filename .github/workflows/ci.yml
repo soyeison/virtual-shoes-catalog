@@ -44,7 +44,8 @@ jobs:
             build-args: ""
           - service: web
             context: shoes-web-app
-            build-args: PUBLIC_API_URL=http://localhost:8000/api/v1
+            # Se configura en Settings → Secrets and variables → Actions → Variables
+            build-args: PUBLIC_API_URL=${{ vars.PUBLIC_API_URL || 'http://localhost:8000/api/v1' }}
     steps:
       - uses: actions/checkout@v4
 
