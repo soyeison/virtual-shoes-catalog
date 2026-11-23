@@ -6,7 +6,7 @@ Tienda web del monorepo `virtual-shoes-catalog`. Permite buscar y filtrar el cat
 
 | Tecnología | Uso |
 | --- | --- |
-| Astro 6 + `@astrojs/node` (standalone) | Enrutamiento, SSR y servidor Node |
+| Astro 7 + `@astrojs/node` (standalone) | Enrutamiento, SSR y servidor Node |
 | React 19 (`@astrojs/react`) | Islas interactivas (`client:load`) |
 | Zustand 5 | Estado global: sesión (persistida en `localStorage`) y carrito |
 | Tailwind CSS 4 (`@tailwindcss/vite`) | Estilos |
@@ -15,7 +15,7 @@ Tienda web del monorepo `virtual-shoes-catalog`. Permite buscar y filtrar el cat
 
 ## Inicio rápido
 
-Requiere Node.js >= 22.12 y la API corriendo en `http://localhost:8000`.
+Requiere Node.js >= 22.23.4 y la API corriendo en `http://localhost:8000`.
 
 ```bash
 cd shoes-web-app

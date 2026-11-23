@@ -19,13 +19,15 @@ El nombre de proyecto es fijo y coincide con el del compose antiguo (que vivía 
 | `api` | build `./virtual-catalog-api` | `catalogo_api` | `8000:8000` | Permanente |
 | `web` | build `./shoes-web-app` | `catalogo_web` | `4321:4321` | Permanente |
 
+Los puertos del host son los valores por defecto: se cambian en el `.env` de la raíz (`STORAGE_PORT`, `STORAGE_CONSOLE_PORT`, `API_PORT`, `WEB_PORT`), y las URLs que dependen de ellos (`S3_PUBLIC_URL`, `PUBLIC_API_URL`, `CORS_ORIGINS`) se ajustan solas.
+
 ### `storage`
 
 Servidor de objetos compatible con S3 ([RustFS](https://github.com/rustfs/rustfs)). Reemplaza a MinIO, cuyas imágenes oficiales ya no están disponibles en Docker Hub. Se configura con variables de entorno:
 
 | Variable | Valor | Para qué |
 | --- | --- | --- |
-| `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` | `admin` / `password123` | Credenciales de administrador |
+| `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` del `.env` | Credenciales de administrador |
 | `RUSTFS_ADDRESS` | `:9000` | API S3 |
 | `RUSTFS_CONSOLE_ENABLE` / `RUSTFS_CONSOLE_ADDRESS` | `true` / `:9001` | Consola web en http://localhost:9001/rustfs/console/ |
 | `RUSTFS_OBS_LOG_DIRECTORY` | vacío | Envía los logs a stdout (`docker compose logs storage`) en lugar de a un archivo dentro del contenedor |
@@ -34,18 +36,21 @@ Su `healthcheck` consulta `http://localhost:9000/health`; el servicio aparece co
 
 ### `storage-setup`
 
-Contenedor de `aws-cli` que prepara el bucket y termina:
+Contenedor de `aws-cli` que prepara el bucket `S3_BUCKET` (por defecto `catalogo-images`) y termina:
 
 ```sh
-aws --endpoint-url http://storage:9000 s3api create-bucket --bucket catalogo-images
-aws --endpoint-url http://storage:9000 s3api put-bucket-policy --bucket catalogo-images --policy '<lectura pública de objetos>'
+export AWS_DEFAULT_REGION="$S3_REGION"
+aws --endpoint-url http://storage:9000 s3api create-bucket --bucket "$S3_BUCKET"
+aws --endpoint-url http://storage:9000 s3api put-bucket-policy --bucket "$S3_BUCKET" --policy '<lectura pública de objetos>'
 ```
+
+En el compose estas variables se escriben `$$S3_BUCKET`: el `$$` evita que Compose las reemplace, así las expande el shell del contenedor con el valor que recibe en `environment:`.
 
 Se ejecuta con `sh -e`: si un paso falla, termina con código distinto de `0` y la API no arranca. Crear el bucket cuando ya existe no es un error, así que puede repetirse en cada `up`. La política se explica en [storage.md](../virtual-catalog-api/docs/storage.md#política-del-bucket).
 
 ### `api`
 
-Imagen de la API ([`virtual-catalog-api/Dockerfile`](../virtual-catalog-api/Dockerfile)). Lee su configuración de `virtual-catalog-api/.env` (`env_file`) y sobrescribe tres variables (ver [variables de entorno](#variables-de-entorno)). La base de datos SQLite queda en el volumen `api_data`.
+Imagen de la API ([`virtual-catalog-api/Dockerfile`](../virtual-catalog-api/Dockerfile)). Toma `DATABASE_PATH` y la configuración de pagos de `virtual-catalog-api/.env` (`env_file`); el resto lo define el bloque `environment:` a partir del `.env` de la raíz (ver [variables de entorno](#variables-de-entorno)). La base de datos SQLite queda en el volumen `api_data`.
 
 ### `web`
 
@@ -109,31 +114,43 @@ docker volume ls | grep project-virtual-catalog
 
 ## Variables de entorno
 
+Ningún secreto está escrito en el `docker-compose.yml`. Todo sale del **`.env` de la raíz** ([`.env.example`](../.env.example)), que Compose lee automáticamente para reemplazar las `${VARIABLES}`:
+
+| Sintaxis | Uso | Si falta la variable |
+| --- | --- | --- |
+| `${VAR:?mensaje}` | Secretos: `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `JWT_SECRET_KEY`, `JENKINS_ADMIN_PASSWORD` | El compose no arranca y muestra el mensaje |
+| `${VAR:-valor}` | Configuración: puertos, `S3_BUCKET`, `S3_REGION`, `JWT_ALGORITHM`, `JWT_EXPIRATION_MINUTES`, `JENKINS_ADMIN_USER` | Se usa el valor por defecto |
+
+Cada secreto se define **una sola vez** y el compose lo reparte a todos los servicios que lo usan. Por ejemplo, `STORAGE_ACCESS_KEY` llega a `storage` como `RUSTFS_ACCESS_KEY`, a `storage-setup` como `AWS_ACCESS_KEY_ID` y a `api` como `S3_ACCESS_KEY`, así que no pueden quedar desincronizados. `S3_BUCKET` y `S3_REGION` se comparten con el ancla YAML `x-s3-config`.
+
+Para ver la configuración final sin arrancar nada: `docker compose config` (muestra los secretos, no lo compartas).
+
 ### API
 
-`env_file: ./virtual-catalog-api/.env` aporta todas las variables que exige `Settings` ([configuration.md](../virtual-catalog-api/docs/configuration.md)). El bloque `environment:` tiene prioridad y sobrescribe las que dependen de la red:
+El bloque `environment:` tiene prioridad sobre `env_file: ./virtual-catalog-api/.env`:
 
 | Variable | Valor en el compose | Por qué |
 | --- | --- | --- |
 | `S3_ENDPOINT` | `http://storage:9000` | Dentro del contenedor `localhost` es la propia API; al almacenamiento se llega por su nombre de servicio |
-| `S3_PUBLIC_URL` | `http://localhost:9000` | Es la URL que se guarda en la base de datos y usa el navegador, que solo conoce el puerto publicado |
-| `CORS_ORIGINS` | `["http://localhost:4321"]` | Origen de la web publicada por el compose |
+| `S3_PUBLIC_URL` | `http://localhost:${STORAGE_PORT}` | Es la URL que se guarda en la base de datos y usa el navegador, que solo conoce el puerto publicado |
+| `CORS_ORIGINS` | `["http://localhost:${WEB_PORT}"]` | Origen de la web publicada por el compose |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | Las mismas credenciales que `storage` |
+| `S3_BUCKET` / `S3_REGION` | `x-s3-config` | El mismo bucket que crea `storage-setup` |
+| `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRATION_MINUTES` | Del `.env` de la raíz | Firma de los tokens del login |
 
-Lo que **no** se sobrescribe y debe ser coherente con el compose:
+Del `virtual-catalog-api/.env` solo se usan:
 
-| Variable | Debe valer | Coincide con |
+| Variable | Debe valer | Por qué |
 | --- | --- | --- |
-| `S3_ACCESS_KEY` | `admin` | `RUSTFS_ACCESS_KEY` de `storage` |
-| `S3_SECRET_KEY` | `password123` | `RUSTFS_SECRET_KEY` de `storage` |
-| `S3_BUCKET` | `catalogo-images` | Bucket creado por `storage-setup` |
 | `DATABASE_PATH` | `data/catalogo.db` (relativa) | Punto de montaje de `api_data` |
 | `PAYMENT_GATEWAY_PROVIDER` | `mock` o `stripe` | — |
+| `STRIPE_SECRET_KEY` | Vacía, o la clave de Stripe si el proveedor es `stripe` | — |
 
 ### Web
 
 | Variable | Tipo | Valor | Usada por |
 | --- | --- | --- | --- |
-| `PUBLIC_API_URL` | **build arg** | `http://localhost:8000/api/v1` | Código del navegador (islas React) |
+| `PUBLIC_API_URL` | **build arg** | `http://localhost:${API_PORT}/api/v1` | Código del navegador (islas React) |
 | `INTERNAL_API_URL` | **runtime** (`environment:`) | `http://api:8000/api/v1` | Servidor Astro (SSR) |
 
 Detalle en [shoes-web-app/docs/configuration.md](../shoes-web-app/docs/configuration.md).
@@ -147,7 +164,7 @@ Detalle en [shoes-web-app/docs/configuration.md](../shoes-web-app/docs/configura
 | Para cambiarlo | `docker compose up -d --build web` | `docker compose up -d web` (recrea el contenedor) |
 | Ejemplos | `PUBLIC_API_URL` | `INTERNAL_API_URL`, todas las de la API |
 
-Si cambias el `.env` de la API, basta con `docker compose up -d api`: Compose detecta el cambio y recrea el contenedor. No hace falta reconstruir.
+Si cambias cualquiera de los dos `.env`, basta con `docker compose up -d`: Compose detecta el cambio y recrea los contenedores afectados. Solo hay que reconstruir la web (`--build web`) si cambia `API_PORT`, porque `PUBLIC_API_URL` es un build arg.
 
 ## Comandos habituales
 
@@ -212,14 +229,15 @@ Funciona porque el puerto `8000` está publicado y `CORS_ORIGINS` permite `http:
 
 | Síntoma | Causa y solución |
 | --- | --- |
+| `required variable STORAGE_ACCESS_KEY is missing a value` (u otro secreto) | Falta el `.env` de la raíz o ese secreto está vacío. `cp .env.example .env` y completa los secretos. |
 | `env file .../virtual-catalog-api/.env not found` | Falta el `.env` de la API. `cp virtual-catalog-api/.env.example virtual-catalog-api/.env` y complétalo. |
 | `api` aparece como `Exited (1)` con `ValidationError ... Field required` en los logs | Falta una variable en el `.env` o quedó vacía. `docker compose logs api` indica cuál; corrige y ejecuta `docker compose up -d api`. |
 | `Conflict. The container name "/catalogo_storage" is already in use` | Existe un contenedor con ese nombre fijo que pertenece a otro proyecto de Compose (por ejemplo, el compose antiguo levantado con otro nombre de proyecto). Revisa con `docker ps -a --filter name=catalogo_` y elimínalo con `docker rm -f catalogo_storage`; los datos están en el volumen, no en el contenedor. |
-| `Bind for 0.0.0.0:8000 failed: port is already allocated` (o 4321, 9000, 9001) | Otro proceso usa el puerto, a menudo la API o la web ejecutándose en local. Detén ese proceso o cambia el puerto del host en el compose (`"8001:8000"`, y entonces actualiza también `PUBLIC_API_URL` y reconstruye la web). |
+| `Bind for 0.0.0.0:8000 failed: port is already allocated` (o 4321, 9000, 9001) | Otro proceso usa el puerto, a menudo la API o la web ejecutándose en local. Detén ese proceso o cambia el puerto en el `.env` de la raíz (por ejemplo `API_PORT=8001`) y ejecuta `docker compose up -d --build web` para que la web use la nueva URL. |
 | `npm run dev` arranca en `4322` en lugar de `4321` | El contenedor `web` ocupa el 4321. Detenlo (`docker compose stop web`); si no, el origen `localhost:4322` no está en `CORS_ORIGINS`. |
 | Las imágenes no cargan en el navegador | `S3_PUBLIC_URL` no es accesible desde el navegador o las URLs guardadas son de otra configuración (por ejemplo, se sembró con `http://storage:9000`, o son imágenes del antiguo MinIO). Revisa una URL en `GET /api/v1/articles` y, si está mal, ejecuta `docker compose down -v`, levanta y vuelve a sembrar. |
 | Imágenes con `403 AccessDenied` | El bucket no tiene la política pública: revisa `docker compose logs storage-setup` y ejecútalo de nuevo con `docker compose up storage-setup`. |
-| `500 Error al subir la imagen al almacenamiento S3` al sembrar o crear artículos | El bucket no existe o `S3_ACCESS_KEY`/`S3_SECRET_KEY`/`S3_BUCKET` del `.env` no coinciden con el compose. |
+| `500 Error al subir la imagen al almacenamiento S3` al sembrar o crear artículos | El bucket no existe (revisa `docker compose logs storage-setup`). Si la API corre fuera de Docker, revisa que `S3_ACCESS_KEY`/`S3_SECRET_KEY`/`S3_BUCKET` de `virtual-catalog-api/.env` coincidan con `STORAGE_ACCESS_KEY`/`STORAGE_SECRET_KEY`/`S3_BUCKET` del `.env` de la raíz. |
 | `pull access denied for minio/minio` | Es un compose antiguo: las imágenes de MinIO ya no están en Docker Hub. Usa el compose actual (RustFS) y sigue [Migrar desde MinIO](../virtual-catalog-api/docs/storage.md#migrar-desde-minio). |
 | `ValidationError` con `s3_endpoint ... Field required` | Tu `.env` todavía usa los nombres antiguos `MINIO_*`. Renómbralos a `S3_*` (ver [`.env.example`](../virtual-catalog-api/.env.example)). |
 | La web muestra "No pudimos conectar con el almacén" | El SSR no alcanza la API: el contenedor `api` no está arriba o `INTERNAL_API_URL` es incorrecta. Revisa `docker compose ps` y `docker compose logs api`. |

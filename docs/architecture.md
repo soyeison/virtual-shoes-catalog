@@ -9,7 +9,7 @@ Vista de conjunto: qué componentes hay, cómo se comunican y por qué cada uno 
 
 | Componente | Proyecto / imagen | Puerto en el host | Responsabilidad |
 | --- | --- | --- | --- |
-| **web** | [`shoes-web-app/`](../shoes-web-app/README.md) (Astro 6 + React, `@astrojs/node` standalone) | `4321` | Renderiza el HTML en el servidor (SSR) y entrega las islas React que se hidratan en el navegador |
+| **web** | [`shoes-web-app/`](../shoes-web-app/README.md) (Astro 7 + React, `@astrojs/node` standalone) | `4321` | Renderiza el HTML en el servidor (SSR) y entrega las islas React que se hidratan en el navegador |
 | **api** | [`virtual-catalog-api/`](../virtual-catalog-api/README.md) (FastAPI + uvicorn) | `8000` | Lógica de negocio: usuarios, catálogo, carrito, pedidos y pagos. Prefijo `/api/v1` |
 | **SQLite** | Archivo `data/catalogo.db` dentro de la API | — | Persistencia de todas las entidades ([database.md](../virtual-catalog-api/docs/database.md)) |
 | **storage** | `rustfs/rustfs` (RustFS, compatible con S3) | `9000` (S3), `9001` (consola) | Almacena las imágenes de los artículos, bucket `catalogo-images` con lectura pública de objetos ([storage.md](../virtual-catalog-api/docs/storage.md)) |

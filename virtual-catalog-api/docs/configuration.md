@@ -46,9 +46,13 @@ Plantilla: [`.env.example`](../.env.example).
 | `CORS_ORIGINS` | Orígenes permitidos por CORS, **como lista JSON** | `["http://localhost:4321"]` |
 | `S3_ENDPOINT` | URL con la que la API se conecta a RustFS | `http://localhost:9000` |
 | `S3_PUBLIC_URL` | URL base de las imágenes para el navegador | `http://localhost:9000` |
-| `S3_ACCESS_KEY` | Usuario de RustFS | `admin` |
-| `S3_SECRET_KEY` | Contraseña de RustFS | `password123` |
+| `S3_ACCESS_KEY` | Usuario de RustFS | `STORAGE_ACCESS_KEY` del `.env` de la raíz |
+| `S3_SECRET_KEY` | Contraseña de RustFS | `STORAGE_SECRET_KEY` del `.env` de la raíz |
 | `S3_BUCKET` | Bucket de imágenes | `catalogo-images` |
+| `S3_REGION` | Región que exige boto3; RustFS acepta cualquiera | `us-east-1` |
+| `JWT_SECRET_KEY` | Secreto con el que se firman los JWT. Genéralo con `openssl rand -hex 32` | (aleatorio) |
+| `JWT_ALGORITHM` | Algoritmo de firma de los JWT | `HS256` |
+| `JWT_EXPIRATION_MINUTES` | Minutos de validez del token | `60` |
 | `PAYMENT_GATEWAY_PROVIDER` | `mock` o `stripe` | `mock` |
 | `STRIPE_SECRET_KEY` | Clave secreta de Stripe (opcional; solo si el proveedor es `stripe`) | `sk_test_...` |
 
@@ -58,13 +62,16 @@ Plantilla: [`.env.example`](../.env.example).
 
 ## Valores en Docker
 
-El `docker-compose.yml` de la raíz carga `virtual-catalog-api/.env` (`env_file`) y **sobrescribe** solo lo que cambia dentro de la red de Docker:
+El `docker-compose.yml` de la raíz carga `virtual-catalog-api/.env` (`env_file`) y **sobrescribe** lo que cambia dentro de la red de Docker o se comparte con otros servicios. Los valores salen del `.env` de la raíz (ver [docker.md](../../docs/docker.md#variables-de-entorno)):
 
 | Variable | Valor en Docker | Por qué |
 | --- | --- | --- |
 | `S3_ENDPOINT` | `http://storage:9000` | Dentro del contenedor, `localhost` es el propio contenedor |
-| `S3_PUBLIC_URL` | `http://localhost:9000` | El navegador accede por el puerto publicado en el host |
-| `CORS_ORIGINS` | `["http://localhost:4321"]` | Origen del frontend publicado por el compose |
+| `S3_PUBLIC_URL` | `http://localhost:${STORAGE_PORT}` | El navegador accede por el puerto publicado en el host |
+| `CORS_ORIGINS` | `["http://localhost:${WEB_PORT}"]` | Origen del frontend publicado por el compose |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | Las mismas credenciales que el servicio `storage` |
+| `S3_BUCKET`, `S3_REGION` | `S3_BUCKET`, `S3_REGION` | El mismo bucket que crea `storage-setup` |
+| `JWT_*` | `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRATION_MINUTES` | Secreto de los tokens fuera del código |
 
 `DATABASE_PATH` no se sobrescribe: el mismo valor relativo (`data/catalogo.db`) apunta a `/app/data/catalogo.db`, donde se monta el volumen `api_data`.
 
@@ -74,5 +81,5 @@ El `.env` **no** se copia a la imagen (`.dockerignore`); llega al contenedor sol
 
 1. Declararla en `Settings` con su tipo; si es opcional, con un valor por defecto.
 2. Agregarla, vacía y con un comentario, a `.env.example`.
-3. Si cambia dentro de Docker, sobrescribirla en `environment:` del servicio `api` en el `docker-compose.yml`.
+3. Si cambia dentro de Docker o es un secreto, sobrescribirla en `environment:` del servicio `api` en el `docker-compose.yml` con `${VAR:?...}` (secreto) o `${VAR:-valor}` (configuración), y agregarla a `.env.example` de la raíz.
 4. Usarla con `from app.infrastructure.config import settings`.

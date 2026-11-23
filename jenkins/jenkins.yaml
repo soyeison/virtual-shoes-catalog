@@ -13,4 +13,4 @@ jenkins:
 
 unclassified:
   location:
-    url: "http://localhost:8081/"
+    url: "${JENKINS_PUBLIC_URL:-http://localhost:8081/}"

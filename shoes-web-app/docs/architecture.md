@@ -1,6 +1,6 @@
 # Arquitectura
 
-El frontend es una aplicación **Astro 6** con renderizado en servidor (SSR) mediante el adapter `@astrojs/node`, e **islas de React 19** para las partes interactivas. El estado del cliente vive en **stores de Zustand** y todo el acceso a la API pasa por un único cliente HTTP (`httpClient`) envuelto en **gateways** por módulo.
+El frontend es una aplicación **Astro 7** con renderizado en servidor (SSR) mediante el adapter `@astrojs/node`, e **islas de React 19** para las partes interactivas. El estado del cliente vive en **stores de Zustand** y todo el acceso a la API pasa por un único cliente HTTP (`httpClient`) envuelto en **gateways** por módulo.
 
 ```mermaid
 flowchart LR

@@ -157,7 +157,9 @@ def get_password_hasher() -> BcryptPasswordHasher:
 
 def get_token_generator() -> JwtTokenGenerator:
     return JwtTokenGenerator(
-        secret_key="supersecretkey", algorithm="HS256", expiration_minutes=60
+        secret_key=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+        expiration_minutes=settings.jwt_expiration_minutes,
     )
 
 
@@ -208,6 +210,7 @@ def get_file_storage() -> S3FileStorage:
         access_key=settings.s3_access_key,
         secret_key=settings.s3_secret_key,
         bucket_name=settings.s3_bucket,
+        region_name=settings.s3_region,
         public_url=settings.s3_public_url,
     )
 
@@ -217,6 +220,7 @@ def get_storage_health_client():
         endpoint_url=settings.s3_endpoint,
         access_key=settings.s3_access_key,
         secret_key=settings.s3_secret_key,
+        region_name=settings.s3_region,
     )
 
 

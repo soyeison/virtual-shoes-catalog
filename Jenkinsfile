@@ -2,7 +2,6 @@
 // Flujo: análisis estático -> pruebas (contenedor efímero) -> imágenes -> escaneo Trivy -> prueba de humo.
 pipeline {
   agent any
-  options { timestamps() }
   stages {
 
     stage('Pruebas backend') {
@@ -43,7 +42,54 @@ pipeline {
       }
     }
 
+    stage('Escaneo de seguridad (Trivy)') {
+      environment {
+        // Fijada por digest: en marzo de 2026 se publicaron imágenes maliciosas de Trivy en
+        // Docker Hub (incluida "latest"). Una etiqueta se puede reapuntar; un digest no.
+        TRIVY_IMAGE = 'aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb'
+      }
+      steps {
+        // Por cada imagen: un reporte con HIGH y CRITICAL que no bloquea, y una segunda pasada
+        // que falla solo si hay CRITICAL. Se escanean las dos imágenes antes de fallar.
+        // label=disable: en Fedora/RHEL, SELinux impide usar el socket de Docker dentro del contenedor.
+        // El volumen trivy-cache evita descargar la base de datos en cada build y acelera la 2.ª pasada.
+        // Para aceptar a conciencia una CRITICAL sin arreglo, agrega su ID a un .trivyignore.
+        sh '''
+          trivy() {
+            docker run --rm \
+              --security-opt label=disable \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v trivy-cache:/root/.cache/ \
+              "$TRIVY_IMAGE" image "$@"
+          }
+
+          criticas=""
+          for img in backend-ci frontend-ci; do
+            echo "===== Reporte de $img (HIGH y CRITICAL, no bloquea) ====="
+            trivy --severity HIGH,CRITICAL --exit-code 0 $img:${BUILD_NUMBER}
+
+            if ! trivy --quiet --severity CRITICAL --exit-code 1 --format table --output /dev/null $img:${BUILD_NUMBER}; then
+              criticas="$criticas $img"
+            fi
+          done
+
+          if [ -n "$criticas" ]; then
+            echo "Escaneo fallido: vulnerabilidades CRITICAL en:$criticas (ver el reporte de arriba)"
+            exit 1
+          fi
+          echo "Escaneo superado: sin vulnerabilidades CRITICAL"
+        '''
+      }
+    }
+
     stage('Prueba de humo') {
+      // Configuración de la prueba (no son secretos; los secretos se generan en cada build)
+      environment {
+        S3_BUCKET = 'catalogo-images'
+        S3_REGION = 'us-east-1'
+        JWT_ALGORITHM = 'HS256'
+        JWT_EXPIRATION_MINUTES = '60'
+      }
       steps {
         // Comprueba que el build arranca y que sus piezas se conectan:
         // el backend está listo (base de datos + almacenamiento) y el frontend lo consume.
@@ -71,7 +117,7 @@ pipeline {
           # las variables solo por nombre (-e VAR), así el valor nunca aparece en un comando.
           set +x
           rand() { head -c "$1" /dev/urandom | od -An -tx1 | tr -d ' \\n'; }
-          export S3_ACCESS_KEY=$(rand 10) S3_SECRET_KEY=$(rand 20)
+          export S3_ACCESS_KEY=$(rand 10) S3_SECRET_KEY=$(rand 20) JWT_SECRET_KEY=$(rand 32)
           export RUSTFS_ACCESS_KEY=$S3_ACCESS_KEY RUSTFS_SECRET_KEY=$S3_SECRET_KEY
           export AWS_ACCESS_KEY_ID=$S3_ACCESS_KEY AWS_SECRET_ACCESS_KEY=$S3_SECRET_KEY
 
@@ -83,8 +129,8 @@ pipeline {
           bucket=0
           for i in $(seq 1 20); do
             if docker run --rm --network $NET \
-                 -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION=us-east-1 \
-                 amazon/aws-cli:2.31.0 --endpoint-url http://storage:9000 s3api create-bucket --bucket catalogo-images; then
+                 -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION=$S3_REGION \
+                 amazon/aws-cli:2.31.0 --endpoint-url http://storage:9000 s3api create-bucket --bucket "$S3_BUCKET"; then
               bucket=1
               break
             fi
@@ -101,7 +147,11 @@ pipeline {
             -e S3_PUBLIC_URL=http://storage:9000 \
             -e S3_ACCESS_KEY \
             -e S3_SECRET_KEY \
-            -e S3_BUCKET=catalogo-images \
+            -e S3_BUCKET \
+            -e S3_REGION \
+            -e JWT_SECRET_KEY \
+            -e JWT_ALGORITHM \
+            -e JWT_EXPIRATION_MINUTES \
             -e PAYMENT_GATEWAY_PROVIDER=mock \
             backend-ci:${BUILD_NUMBER}
 

@@ -12,6 +12,7 @@ class S3FileStorage(FileStoragePort):
         access_key: str,
         secret_key: str,
         bucket_name: str,
+        region_name: str,
         public_url: Optional[str] = None,
     ):
         # Configuramos boto3 para que apunte a nuestro localhost en vez de a los servidores de Amazon
@@ -20,7 +21,7 @@ class S3FileStorage(FileStoragePort):
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
-            region_name="us-east-1",  # Required inclusive for local development
+            region_name=region_name,  # boto3 la exige aunque RustFS la ignore
         )
         self.bucket_name = bucket_name
         # URL base para el navegador; puede diferir del endpoint interno (ej. dentro de Docker)

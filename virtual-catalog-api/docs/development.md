@@ -43,16 +43,20 @@ DATABASE_PATH=data/catalogo.db
 CORS_ORIGINS=["http://localhost:4321"]
 S3_ENDPOINT=http://localhost:9000
 S3_PUBLIC_URL=http://localhost:9000
-S3_ACCESS_KEY=admin
-S3_SECRET_KEY=password123
+S3_ACCESS_KEY=<STORAGE_ACCESS_KEY del .env de la raíz>
+S3_SECRET_KEY=<STORAGE_SECRET_KEY del .env de la raíz>
 S3_BUCKET=catalogo-images
+S3_REGION=us-east-1
+JWT_SECRET_KEY=<openssl rand -hex 32>
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_MINUTES=60
 PAYMENT_GATEWAY_PROVIDER=mock
 STRIPE_SECRET_KEY=
 ```
 
 ## 3. Levantar RustFS
 
-Desde la **raíz del monorepo**:
+Necesita el `.env` de la raíz con sus secretos (`cp .env.example .env`, ver el [README](../../README.md)). Desde la **raíz del monorepo**:
 
 ```bash
 docker compose up -d storage storage-setup

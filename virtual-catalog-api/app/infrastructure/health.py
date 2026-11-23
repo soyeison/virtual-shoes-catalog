@@ -19,13 +19,15 @@ STORAGE_HEALTH_CONFIG = Config(
 )
 
 
-def build_storage_health_client(endpoint_url: str, access_key: str, secret_key: str):
+def build_storage_health_client(
+    endpoint_url: str, access_key: str, secret_key: str, region_name: str
+):
     return boto3.client(
         "s3",
         endpoint_url=endpoint_url,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
-        region_name="us-east-1",
+        region_name=region_name,
         config=STORAGE_HEALTH_CONFIG,
     )
 
