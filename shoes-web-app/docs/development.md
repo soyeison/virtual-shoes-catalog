@@ -4,7 +4,7 @@ Cómo ejecutar el frontend en tu máquina. Necesitas la API corriendo (por defec
 
 ## Requisitos
 
-- **Node.js >= 22.12.0** (lo exige `engines` en `package.json`; la imagen de Docker usa `node:22-alpine`)
+- **Node.js >= 22.23.4** (lo exige Astro 7 y `engines` en `package.json`; la imagen de Docker usa `node:22-alpine`)
 - npm (se usa `package-lock.json`)
 - La API accesible desde el navegador, con `http://localhost:4321` en su `CORS_ORIGINS`
 - Opcional: Docker, para construir la imagen de la web

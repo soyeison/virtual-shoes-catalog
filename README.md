@@ -7,7 +7,7 @@ Este repositorio es un **monorepo** con dos proyectos y la orquestación Docker 
 | Carpeta | Qué es | Tecnologías |
 | --- | --- | --- |
 | [`virtual-catalog-api/`](virtual-catalog-api/) | API REST del negocio | Python 3.12, FastAPI, arquitectura hexagonal, SQLite, almacenamiento S3 con RustFS (boto3), pagos Mock/Stripe |
-| [`shoes-web-app/`](shoes-web-app/) | Tienda web | Astro 6 (SSR con `@astrojs/node`), React, Zustand, Tailwind |
+| [`shoes-web-app/`](shoes-web-app/) | Tienda web | Astro 7 (SSR con `@astrojs/node`), React, Zustand, Tailwind |
 | [`docker-compose.yml`](docker-compose.yml) | Levanta todo el sistema | RustFS, API y web en contenedores |
 | [`docs/`](docs/) | Documentación transversal | Arquitectura del sistema y Docker |
 
