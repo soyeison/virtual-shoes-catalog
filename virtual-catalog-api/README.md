@@ -9,12 +9,21 @@ Arquitectura hexagonal (puertos y adaptadores) con dominio, aplicación e infrae
 ## Inicio rápido (local)
 
 ```bash
+# Todo desde virtual-catalog-api/
 cp .env.example .env                      # y completar los valores (ver docs/configuration.md)
-pip install -r requirements.txt           # idealmente dentro de un .venv
-docker compose up -d storage storage-setup    # desde la raíz del monorepo
+cp ../.env.example ../.env                # .env de la raíz: completar los 4 secretos (ver nota)
+python -m venv .venv
+source .venv/bin/activate                 # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+docker compose -f ../docker-compose.yml up -d storage storage-setup
 uvicorn app.infrastructure.api.main:app --reload
+# En otra terminal, también con el .venv activado:
 python seed.py                            # 20 artículos de prueba
 ```
+
+> **Importante:** activa el `.venv` en cada terminal nueva antes de usar `uvicorn`, `python seed.py` o `pytest`. Sin él se usa el Python global, que no tiene las dependencias, y falla con `ModuleNotFoundError: No module named 'bcrypt'`.
+
+> **Nota:** `docker compose` lee el `.env` de la raíz, no el de la API. Aunque solo levantes `storage` y `storage-setup`, compose valida el archivo completo, así que los cuatro secretos (`STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `JWT_SECRET_KEY`, `JENKINS_ADMIN_PASSWORD`) deben tener valor o no arranca (`required variable ... is missing a value`). Además, `STORAGE_ACCESS_KEY` y `STORAGE_SECRET_KEY` deben coincidir con `S3_ACCESS_KEY` y `S3_SECRET_KEY` del `.env` de la API; si no, la API no podrá autenticarse contra RustFS.
 
 - API: http://localhost:8000/api/v1
 - Documentación interactiva (Swagger): http://localhost:8000/docs
