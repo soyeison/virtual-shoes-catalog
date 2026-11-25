@@ -8,8 +8,9 @@ Este repositorio es un **monorepo** con dos proyectos y la orquestación Docker 
 | --- | --- | --- |
 | [`virtual-catalog-api/`](virtual-catalog-api/) | API REST del negocio | Python 3.12, FastAPI, arquitectura hexagonal, SQLite, almacenamiento S3 con RustFS (boto3), pagos Mock/Stripe |
 | [`shoes-web-app/`](shoes-web-app/) | Tienda web | Astro 7 (SSR con `@astrojs/node`), React, Zustand, Tailwind |
-| [`docker-compose.yml`](docker-compose.yml) | Levanta todo el sistema | RustFS, API y web en contenedores |
-| [`docs/`](docs/) | Documentación transversal | Arquitectura del sistema y Docker |
+| [`docker-compose.yml`](docker-compose.yml) | Levanta todo el sistema | RustFS, API, web y Jenkins en contenedores |
+| [`Jenkinsfile`](Jenkinsfile) | Pipeline de integración continua | Jenkins: pruebas, imágenes, escaneo Trivy y prueba de humo |
+| [`docs/`](docs/) | Documentación transversal | Arquitectura del sistema, Docker e integración continua |
 
 ```mermaid
 flowchart LR
@@ -84,7 +85,7 @@ La documentación está repartida en tres niveles. **El `README.md` de cada proy
 | Ubicación | Contenido |
 | --- | --- |
 | [`README.md`](README.md) (este archivo) | Qué es el proyecto, inicio rápido y mapa de la documentación |
-| [`docs/`](docs/) | Lo que involucra a más de un proyecto: [architecture.md](docs/architecture.md) (sistema completo) y [docker.md](docs/docker.md) (compose, imágenes, volúmenes, problemas comunes) |
+| [`docs/`](docs/) | Lo que involucra a más de un proyecto: [architecture.md](docs/architecture.md) (sistema completo) y [docker.md](docs/docker.md) (compose, imágenes, volúmenes, problemas comunes) y [jenkins.md](docs/jenkins.md) (pipeline y configuración de la tarea en Jenkins) |
 | [`virtual-catalog-api/`](virtual-catalog-api/README.md) | Todo lo interno de la API: [`docs/`](virtual-catalog-api/docs/) con arquitectura hexagonal, dominio, endpoints, base de datos, pagos, almacenamiento, seguridad, configuración, seed, tests y limitaciones |
 | [`shoes-web-app/`](shoes-web-app/README.md) | Todo lo interno de la web: [`docs/`](shoes-web-app/docs/) con arquitectura, páginas, cliente HTTP, estado, autenticación, estilos, configuración, desarrollo y limitaciones |
 
@@ -113,7 +114,8 @@ Todos los perfiles empiezan por este README y por [docs/architecture.md](docs/ar
 **DevOps / integración continua**
 
 1. [docs/docker.md](docs/docker.md): servicios, imágenes, volúmenes, variables y comandos.
-2. [API: configuration.md](virtual-catalog-api/docs/configuration.md) y [Web: configuration.md](shoes-web-app/docs/configuration.md): todas las variables de entorno.
-3. [API: storage.md](virtual-catalog-api/docs/storage.md): RustFS y URLs interna/pública.
-4. [API: testing.md](virtual-catalog-api/docs/testing.md): cómo ejecutar los tests (también dentro del contenedor).
-5. [API: known-issues.md](virtual-catalog-api/docs/known-issues.md): JWT sin validar, bucket público y otros puntos a resolver antes de producción.
+2. [docs/jenkins.md](docs/jenkins.md): levantar Jenkins, configurar la tarea y qué hace cada etapa del pipeline.
+3. [API: configuration.md](virtual-catalog-api/docs/configuration.md) y [Web: configuration.md](shoes-web-app/docs/configuration.md): todas las variables de entorno.
+4. [API: storage.md](virtual-catalog-api/docs/storage.md): RustFS y URLs interna/pública.
+5. [API: testing.md](virtual-catalog-api/docs/testing.md): cómo ejecutar los tests (también dentro del contenedor).
+6. [API: known-issues.md](virtual-catalog-api/docs/known-issues.md): JWT sin validar, bucket público y otros puntos a resolver antes de producción.

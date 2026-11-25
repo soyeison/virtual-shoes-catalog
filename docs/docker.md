@@ -18,8 +18,9 @@ El nombre de proyecto es fijo y coincide con el del compose antiguo (que vivía 
 | `storage-setup` | `amazon/aws-cli:2.31.0` | `catalogo_storage_setup` | — | Se ejecuta y termina (`Exited (0)`) |
 | `api` | build `./virtual-catalog-api` | `catalogo_api` | `8000:8000` | Permanente |
 | `web` | build `./shoes-web-app` | `catalogo_web` | `4321:4321` | Permanente |
+| `jenkins` | build `./jenkins` | `jenkins-ci` | `8081:8080` (web), `50000:50000` (agentes) | Permanente (`restart: unless-stopped`) |
 
-Los puertos del host son los valores por defecto: se cambian en el `.env` de la raíz (`STORAGE_PORT`, `STORAGE_CONSOLE_PORT`, `API_PORT`, `WEB_PORT`), y las URLs que dependen de ellos (`S3_PUBLIC_URL`, `PUBLIC_API_URL`, `CORS_ORIGINS`) se ajustan solas.
+Los puertos del host son los valores por defecto: se cambian en el `.env` de la raíz (`STORAGE_PORT`, `STORAGE_CONSOLE_PORT`, `API_PORT`, `WEB_PORT`, `JENKINS_PORT`, `JENKINS_AGENT_PORT`), y las URLs que dependen de ellos (`S3_PUBLIC_URL`, `PUBLIC_API_URL`, `CORS_ORIGINS`) se ajustan solas.
 
 ### `storage`
 
@@ -55,6 +56,10 @@ Imagen de la API ([`virtual-catalog-api/Dockerfile`](../virtual-catalog-api/Dock
 ### `web`
 
 Imagen de la tienda ([`shoes-web-app/Dockerfile`](../shoes-web-app/Dockerfile)). Recibe `PUBLIC_API_URL` como *build arg* y `INTERNAL_API_URL` como variable de runtime.
+
+### `jenkins`
+
+Servidor de integración continua que ejecuta el [`Jenkinsfile`](../Jenkinsfile). No depende de los demás servicios: se levanta por separado con `docker compose up -d --build jenkins`. Usa el Docker del host a través del socket montado. Imagen, configuración, creación de la tarea y etapas del pipeline: [jenkins.md](jenkins.md).
 
 ## Imágenes
 
@@ -97,7 +102,7 @@ flowchart LR
 
 ## Redes
 
-No se declaran redes: Compose crea la red por defecto `project-virtual-catalog_default` y conecta los cuatro servicios. Dentro de ella cada servicio se resuelve por su nombre (`storage`, `api`, `web`). Desde el host solo se llega a los puertos publicados en `localhost`.
+No se declaran redes: Compose crea la red por defecto `project-virtual-catalog_default` y conecta todos los servicios. Dentro de ella cada servicio se resuelve por su nombre (`storage`, `api`, `web`). Desde el host solo se llega a los puertos publicados en `localhost`.
 
 ## Volúmenes
 
@@ -105,6 +110,7 @@ No se declaran redes: Compose crea la red por defecto `project-virtual-catalog_d
 | --- | --- | --- |
 | `project-virtual-catalog_storage_data` | `storage:/data` | Buckets e imágenes |
 | `project-virtual-catalog_api_data` | `api:/app/data` | Base de datos SQLite (`catalogo.db`) |
+| `project-virtual-catalog_jenkins_home` | `jenkins:/var/jenkins_home` | Configuración de Jenkins, tareas e historial de builds |
 
 `DATABASE_PATH=data/catalogo.db` es relativo a la carpeta de la API, así que se resuelve a `virtual-catalog-api/data/catalogo.db` en local y a `/app/data/catalogo.db` en el contenedor, justo donde se monta `api_data` (ver [configuration.md](../virtual-catalog-api/docs/configuration.md#valores-en-docker)). La base de datos local y la del contenedor son **archivos distintos**.
 
@@ -186,7 +192,7 @@ Si cambias cualquiera de los dos `.env`, basta con `docker compose up -d`: Compo
 
 `docker compose down` elimina contenedores y la red, pero **conserva** los volúmenes: al volver a levantar, la base de datos y las imágenes siguen ahí.
 
-`docker compose down -v` borra además `storage_data` y `api_data`: **se pierden todos los usuarios, artículos, pedidos e imágenes**. Al volver a levantar, `storage-setup` recrea el bucket vacío y hay que ejecutar de nuevo el seed. Es la forma de empezar de cero (el seed no es idempotente, ver [seed.md](../virtual-catalog-api/docs/seed.md)).
+`docker compose down -v` borra además `storage_data`, `api_data` y `jenkins_home` (tareas e historial de Jenkins): **se pierden todos los usuarios, artículos, pedidos e imágenes**. Al volver a levantar, `storage-setup` recrea el bucket vacío y hay que ejecutar de nuevo el seed. Es la forma de empezar de cero (el seed no es idempotente, ver [seed.md](../virtual-catalog-api/docs/seed.md)).
 
 El seed necesita internet desde el contenedor: además de las imágenes de `static/`, descarga una imagen de `https://picsum.photos` por artículo.
 
